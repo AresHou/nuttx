@@ -27,76 +27,85 @@
 #
 
 config GREYBUS_TAPE_ARM_SEMIHOSTING
-	bool "ARM Semihosting GB Taping"
-	depends on ARCH_ARM
-	select ARM_SEMIHOSTING
-	default n
-	---help---
-		Greybus Tape provide a recording mechanism for incoming Greybus
-		operations in order to replay them without needing an AP or UniPro.
+    bool "ARM Semihosting GB Taping"
+    depends on ARCH_ARM
+    select ARM_SEMIHOSTING
+    default n
+    ---help---
+        Greybus Tape provide a recording mechanism for incoming Greybus
+        operations in order to replay them without needing an AP or UniPro.
 
 config GREYBUS_CONTROL_PROTOCOL
-	bool "Control Protocol support"
-	default n
+    bool "Control Protocol support"
+    default n
 
 config GREYBUS_GPIO_PHY
-	bool "GPIO PHY support"
-	select GPIO
-	default n
+    bool "GPIO PHY support"
+    select GPIO
+    default n
 
 config GREYBUS_I2C_PHY
-	bool "I2C PHY support"
-	select I2C
-	select I2C_TRANSFER
-	default n
+    bool "I2C PHY support"
+    select I2C
+    select I2C_TRANSFER
+    default n
 
 config GREYBUS_SPI_PHY
-	bool "SPI PHY support"
-	select DEVICE_CORE
-	default n
+    bool "SPI PHY support"
+    select DEVICE_CORE
+    default n
 
 config GREYBUS_POWER_SUPPLY
 	bool "Power supply support"
 	default n
+	
+config GREYBUS_BATTERY
+    bool "Battery support"
+    default n
 
 config GREYBUS_LOOPBACK
-	bool "Loopback support"
-	default n
+    bool "Loopback support"
+    default n
 
 config GREYBUS_VIBRATOR
-	bool "Vibrator support"
-	select GPIO
-	default n
+    bool "Vibrator support"
+    select GPIO
+    default n
 
 config GREYBUS_USB_HOST_PHY
-	bool "USB Host PHY support"
-	default n
+    bool "USB Host PHY support"
+    default n
 
 config GREYBUS_PWM_PHY
-	bool "PWM PHY support"
-	select DEVICE_CORE
-	default n
+    bool "PWM PHY support"
+    select DEVICE_CORE
+    default n
 
 config GREYBUS_UART_PHY
-	bool "UART PHY support"
-	select DEVICE_CORE
-	default n
+    bool "UART PHY support"
+    select DEVICE_CORE
+    default n
 
 config GREYBUS_HID
-	bool "HID support"
-	select DEVICE_CORE
-	default n
+    bool "HID support"
+    select DEVICE_CORE
+    default n
 
 config GREYBUS_SDIO_PHY
-	bool "SDIO PHY support"
-	select DEVICE_CORE
-	default n
+    bool "SDIO PHY support"
+    select DEVICE_CORE
+    default n
 
 config GREYBUS_FEATURE_HAVE_TIMESTAMPS
-	bool
-	default n
+    bool
+    default n
 
 config GREYBUS_LIGHTS
-	bool "Lights support"
-	select DEVICE_CORE
-	default n
+    bool "Lights support"
+    select DEVICE_CORE
+    default n
+
+config GREYBUS_CAMERA
+    bool "Camera support"
+    select DEVICE_CORE
+    default n
