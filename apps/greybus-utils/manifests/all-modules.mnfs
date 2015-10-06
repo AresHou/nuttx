@@ -154,3 +154,11 @@ protocol = 0x0f
 
 [bundle-descriptor 15]
 class = 15
+
+; Camera protocol on CPort 17
+[cport-descriptor 17]
+bundle = 13
+protocol = 0x0d
+
+[bundle-descriptor 13]
+class = 13
