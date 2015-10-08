@@ -35,4 +35,6 @@
 
 int ov5645_init(int mode);
 
-#endif
+
+#endif  /* _OV5645_H_ */
+

@@ -42,6 +42,7 @@
 #include <nuttx/i2c.h>
 #include <nuttx/gpio/tca64xx.h>
 #include <nuttx/device_lights.h>
+#include <nuttx/device_camera.h>
 
 #include "tsb_scm.h"
 #include "up_arch.h"
@@ -175,6 +176,14 @@ static struct device devices[] = {
         .resource_count = ARRAY_SIZE(sdio_board_resources),
     },
 #endif
+#ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
+    {
+        .type           = DEVICE_TYPE_CAMERA_HW,
+        .name           = "camera",
+        .desc           = "Camera Device Driver",
+        .id             = 0,
+    },
+#endif
 };
 
 static struct device_table bdb_device_table = {
@@ -208,6 +217,10 @@ static void bdb_driver_register(void)
     extern struct device_driver sdio_board_driver;
     device_register_driver(&sdio_board_driver);
 #endif
+#ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
+    extern struct device_driver camera_driver;
+    device_register_driver(&camera_driver);
+#endif
 }
 #endif
 
@@ -218,12 +231,14 @@ static void board_display_init(void)
 #endif
 }
 
+ #if 0 //[BSQ] remove for camera device driver development
 static void board_camera_init(void)
 {
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
     camera_init();
 #endif
 }
+ #endif //[BSQ] end of remove for camera device driver development
 
 static void sdb_fixups(void)
 {
@@ -289,5 +304,7 @@ void ara_module_init(void)
 #endif
 
     board_display_init();
+    #if 0 //[BSQ] remove for camera device driver development
     board_camera_init();
+    #endif //[BSQ] end of remove for camera device driver development
 }
