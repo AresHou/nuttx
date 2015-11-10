@@ -55,7 +55,7 @@ static int show_capabilities(struct device *dev)
 
     result = device_camera_capabilities(dev, &size, &capabilities);
     if(!result) {
-        printf("=== show_capabilities ===\n");
+        printf("=== show capabilities ===\n");
         printf("capabilities: 0x%X \n", capabilities);
         printf("size: %d\n", size);
         printf("\n");
@@ -75,7 +75,7 @@ static int show_get_required_size(struct device *dev, uint8_t operation)
      if(!result) {
         num_of_support_mode = size;
 
-        printf("=== show_get_required_size ===\n");
+        printf("=== show required size ===\n");
         printf("support type: %d,size: %d\n", operation, size);
     } else {
         printf("ERROR! ov5645_get_required_size failed: %d\n", result);
@@ -105,12 +105,12 @@ static int show_get_support_strm_cfg(struct device *dev, uint8_t operation)
     /* get support stream config */
     result = device_camera_get_support_strm_cfg(dev, num_streams, config);
     if(!result) {
-        printf("=== ov5645_get_support_strm_cfg ===\n");
-        printf("support_str_size: %d\n", num_of_support_mode);
+        printf("=== show support stream config ===\n");
+        printf("The number of support modes: %d\n", num_of_support_mode);
 
         /* print all of ov5645 modes */
         for(i=0; i<num_of_support_mode; i++) {
-           printf("=== mode%d ===\n", i);
+           printf("--- mode%d ---\n", i);
            printf("width           : %d\n", config[i].width);
            printf("height          : %d\n", config[i].height);
            printf("format          : 0x%x\n", config[i].format);
@@ -154,7 +154,7 @@ static int show_set_streams_cfg(struct device *dev)
     result = device_camera_set_streams_cfg(dev, num_streams, &flags, config,
                                            answer);
     if(!result) {
-        printf("=== show_set_streams_cfg ===\n");
+        printf("=== show streams config ===\n");
         printf("width           : %d\n",   answer->width);
         printf("height          : %d\n",   answer->height);
         printf("format          : 0x%x\n", answer->format);
@@ -194,7 +194,7 @@ static int show_get_current_strm_cfg(struct device *dev, uint8_t operation)
 
     result = device_camera_get_current_strm_cfg(dev, &flags, answer);
     if(!result) {
-        printf("=== show_get_current_strm_cfg ===\n");
+        printf("=== show current streams config ===\n");
         printf("width           : %d\n",   answer->width);
         printf("height          : %d\n",   answer->height);
         printf("format          : 0x%x\n", answer->format);
@@ -232,7 +232,7 @@ static int show_start_capture(struct device *dev)
 
     result = device_camera_start_capture(dev, capt_info);
     if(!result) {
-        printf("=== show_start_capture ===\n");
+        printf("=== Start capture ===\n");
         printf("\n");
     } else {
         printf("ERROR! show_start_capture failed: %d\n", result);
@@ -250,7 +250,7 @@ static int show_stop_capture(struct device *dev)
 
     result = device_camera_stop_capture(dev, &request_id);
     if(!result) {
-        printf("=== show_stop_capture ===\n");
+        printf("=== Stop_capture ===\n");
         printf("request_id: %d\n",request_id);
         printf("\n");
     } else {
@@ -279,7 +279,7 @@ static int show_get_meta_data(struct device *dev, uint8_t operation)
     /* obtain meta data */
     result = device_camera_get_meta_data(dev, meta_data);
     if(!result) {
-        printf("=== ov5645_get_meta_data ===\n");
+        printf("=== Show meta data ===\n");
 
         /* get meta data */
         printf("request_id   : %d\n", meta_data->request_id);
