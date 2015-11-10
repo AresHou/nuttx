@@ -195,7 +195,7 @@ struct camera_info {
     uint32_t max_size;
 };
 
-static uint8_t req_id = 0;
+static uint8_t req_id;
 
 /**
  * @brief Struct to store register and value for sensor read/write
@@ -826,7 +826,7 @@ int ov5645_get_required_size(struct device *dev, uint8_t operation,
     case SIZE_CONFIG_SUPPORT:
         *size = N_WIN_SIZES;
         break;
-    case SIZE_CONFIG_CURRENT:
+    case SIZE_CONFIG_ANSWER:
         *size = CURRENT_CFG_SIZE;
         break;
     case SIZE_META_DATA:
@@ -882,13 +882,15 @@ int ov5645_get_support_strm_cfg(struct device *dev, uint16_t num_streams,
 
 /**
  * @brief Set streams configuration to camera module
- * @param dev Pointer to structure of device data
  * @param num_streams Number of streams
- * @param config Pointer to structure of streams configuration
- * @return 0 on success, negative errno on error
+ * @param flags Returns status for the input parameters
+ * @param cfg_sup_reqest Data from host request
+ * @param cfg_answer Buffer for getting driver accepted data
+ * @return 0 on success, error code on failure.
  */
 int ov5645_set_streams_cfg(struct device *dev, uint16_t num_streams,
-                           struct streams_cfg_sup *config)
+                           uint16_t *flags, struct streams_cfg_sup *config,
+                           struct streams_cfg_ans *answer)
 {
     struct camera_info *info = NULL;
     uint8_t i;
@@ -903,24 +905,29 @@ int ov5645_set_streams_cfg(struct device *dev, uint16_t num_streams,
         return -EPERM;
     }
 
-    /* support the request */
-    for(i=0; i <= N_WIN_SIZES; i++) {
+    /* Filter out the data from host request */
+    for(i=0; i < N_WIN_SIZES; i++) {
         if(((config[i].width) == (info->str_cfg_sup[i].width)) &&
             ((config[i].height) == (info->str_cfg_sup[i].height)) &&
             ((config[i].format) == (info->str_cfg_sup[i].format))) {
-            if (!set_mode(ov5645_mode_info[i].regs, info->cam_i2c)) {
-                break;
-                return -EINVAL;
-                }
-            }
-    }
 
-    info->str_cfg_ans->width = ov5645_mode_info[i].width;
-    info->str_cfg_ans->height = ov5645_mode_info[i].height;
-    info->str_cfg_ans->format = ov5645_mode_info[i].img_fmt;
-    info->str_cfg_ans->virtual_channel = info->virtual_channel;
-    info->str_cfg_ans->data_type = info->data_type;
-    info->str_cfg_ans->max_size = info->max_size;
+            answer->width = info->str_cfg_sup[i].width;
+            answer->height = info->str_cfg_sup[i].height;
+            answer->format = info->str_cfg_sup[i].format;
+            answer->virtual_channel = info->virtual_channel;
+            answer->data_type = info->data_type;
+            answer->max_size = info->max_size;
+
+            if (!set_mode(ov5645_mode_info[i].regs, info->cam_i2c)) {
+                *flags = SET;
+                break;
+            } else {
+                *flags = UNSET;
+                return -EINVAL;
+            }
+        }
+        *flags = UNSET;
+    }
 
     return 0;
 }
@@ -969,7 +976,6 @@ static int ov5645_start_capture(struct device *dev,
                                 struct capture_info *capt_info)
 {
     struct camera_info *info = NULL;
-    struct i2c_dev_s *cam_i2c = NULL;
     int ret = 0;
 
     if (!dev || !device_get_private(dev) ) {
@@ -986,26 +992,23 @@ static int ov5645_start_capture(struct device *dev,
         return -EIO;
     }
 
-    ret = data_write_array(cam_i2c, ov5645_start_stream);
-    if (ret){
-        return ret;
+    if (set_mode(ov5645_start_stream, info->cam_i2c)) {
+        return -EINVAL;
     }
-
-    ++req_id;
+    req_id++;
 
     return ret;
 }
 
 /**
  * @brief stop stream
- * @param dev The pointer to the battery device structure.
+ * @param dev The pointer to structure of device data
  * @param request_id The request id set by capture
  * @return 0 for success, negative errno on error.
  */
 static int ov5645_stop_capture(struct device *dev, uint32_t *request_id)
 {
     struct camera_info *info = NULL;
-    struct i2c_dev_s *cam_i2c = NULL;
     int ret = 0;
 
     if (!dev || !device_get_private(dev)) {
@@ -1021,19 +1024,20 @@ static int ov5645_stop_capture(struct device *dev, uint32_t *request_id)
     if (!(info->cam_i2c)) {
         return -EIO;
     }
-    ret = data_write_array(cam_i2c, ov5645_stop_stream);
-    if (ret){
-        return ret;
+
+    if (set_mode(ov5645_stop_stream, info->cam_i2c)) {
+        return -EINVAL;
     }
-    *request_id = req_id;
+
     req_id = 0;
+    *request_id = req_id;
 
     return ret;
 }
 
 /**
  * @brief Get camera meta data
- * @param dev The pointer to the battery device structure.
+ * @param dev The pointer to structure of device data
  * @param meta_data Pointer to Meta-data block
  * @return 0 for success, negative errno on error.
  */
@@ -1095,7 +1099,6 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EIO;
         goto err_power_down;
     }
-
     /* get sensor id (high) */
     ret = data_read(info->cam_i2c, OV5645_ID_HIGH, &id[HI_BYTE]);
     if (ret){
@@ -1116,7 +1119,7 @@ static int ov5645_dev_open(struct device *dev)
         goto err_free_i2c;
     }
 
-    printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
+    printf("Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
 
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_sup));
     if (info->str_cfg_sup == NULL) {
@@ -1141,7 +1144,6 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_i2c;
     }
-
     info->mdata_info->request_id = req_id;
     info->mdata_info->frame_number = FRAME_NUMBER;
     info->mdata_info->stream = STREAM;
@@ -1163,8 +1165,11 @@ err_power_down:
     ov5645_power_down(dev);
 err_free_info:
     free(info);
-    info = NULL;
 
+    free(info->str_cfg_sup);
+    free(info->mdata_info);
+
+    info = NULL;
     return ret;
 }
 
@@ -1185,6 +1190,9 @@ static void ov5645_dev_close(struct device *dev)
     up_i2cuninitialize(info->cam_i2c);
 
     ov5645_power_down(dev);
+
+    free(info->str_cfg_sup);
+    free(info->mdata_info);
 
     info->state = OV5645_STATE_CLOSED;
 }
@@ -1228,6 +1236,7 @@ static void ov5645_dev_remove(struct device *dev)
     info = device_get_private(dev);
 
     device_set_private(dev, NULL);
+
     free(info);
     info = NULL;
 }

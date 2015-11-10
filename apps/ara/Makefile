@@ -68,6 +68,7 @@ SUBDIRS  = apbridge
 SUBDIRS += battery
 SUBDIRS += arapm
 SUBDIRS += bringup_entry
+SUBDIRS += camera
 SUBDIRS += debug
 SUBDIRS += dev_info
 SUBDIRS += etm
@@ -97,6 +98,7 @@ ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
 CNTXTDIRS += battery
 CNTXTDIRS += arapm
 CNTXTDIRS += bringup_entry
+CNTXTDIRS += camera
 CNTXTDIRS += debug
 CNTXTDIRS += dev_info
 CNTXTDIRS += etm

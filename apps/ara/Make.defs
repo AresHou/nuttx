@@ -150,3 +150,7 @@ endif
 ifeq ($(CONFIG_ARA_TIME),y)
 CONFIGURED_APPS += ara/time
 endif
+
+ifeq ($(CONFIG_ARA_CAMERA_TEST),y)
+CONFIGURED_APPS += ara/camera
+endif

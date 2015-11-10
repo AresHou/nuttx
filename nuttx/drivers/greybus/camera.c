@@ -80,6 +80,8 @@ struct gb_camera_info {
     pthread_t       capt_thread;
     /** Thread stop flag */
     uint32_t        thread_stop;
+    /** Semaphore for flush */
+    sem_t           flush_sem;
     /** keep the last capture request id */
     uint32_t        last_id;
     /** perform flush */
@@ -89,7 +91,103 @@ struct gb_camera_info {
 static struct gb_camera_info *info = NULL;
 
 /**
+ * @brief Set configuration to driver and get accepted data
+ *
+ * @param num_streams Number of streams
+ * @param flags Returns status for the input parameters
+ * @param cfg_sup_reqest Data from host request
+ * @param cfg_answer Buffer for getting driver accepted data
+ * @return GB_OP_SUCCESS on success, error code on failure.
+ */
+static int set_streams_cfg(uint16_t num_streams, uint16_t *flags,
+                       struct gb_stream_config_req *cfg_sup_reqest,
+                       struct streams_cfg_ans *cfg_answer)
+{
+    struct streams_cfg_sup *cfg_support;
+    int i, ret;
+
+    if (info->state != STATE_UNCONFIGURED) {
+        return GB_OP_INVALID;
+    }
+
+    cfg_support = malloc(num_streams *sizeof(cfg_support));
+    if (!cfg_support) {
+        ret = GB_OP_NO_MEMORY;
+        goto err_free_mem;
+    }
+
+    for (i = 0; i < num_streams; i++) {
+        cfg_support[i].width = le16_to_cpu(cfg_sup_reqest[i].width);
+        cfg_support[i].height = le16_to_cpu(cfg_sup_reqest[i].height);
+        cfg_support[i].format = le16_to_cpu(cfg_sup_reqest[i].format);
+        cfg_support[i].padding = le16_to_cpu(cfg_sup_reqest[i].padding);
+    }
+
+    /* driver shall check the num_streams, it can't exceed its capability */
+    ret = device_camera_set_streams_cfg(info->dev, num_streams, flags,
+                                        cfg_support, cfg_answer);
+    if (ret) {
+        ret = gb_errno_to_op_result(ret);
+        goto err_free_mem;
+    }
+
+    /* if driver not accpet the settings, it stay on unconfigured */
+    if (!flags) {
+        ret = device_camera_power_up(info->dev);
+        if (ret) {
+            ret = gb_errno_to_op_result(ret);
+            goto err_free_mem;
+        }
+        info->state = STATE_CONFIGURED;
+    }
+
+    free(cfg_support);
+    return 0;
+
+err_free_mem:
+    free(cfg_support);
+    return ret;
+}
+
+/**
+ * @brief Get camera support configuration
+ *
+ * @param num_streams Number of streams
+ * @param cfg_answer Buffer for getting driver configuration
+ * @return GB_OP_SUCCESS on success, error code on failure.
+ */
+static int get_supported_cfg(uint16_t num_streams,
+                         struct streams_cfg_ans *cfg_answer)
+{
+    int ret;
+
+    if (info->state != STATE_CONFIGURED) {
+        return GB_OP_INVALID;
+    }
+
+    ret = device_camera_get_support_strm_cfg(info->dev, num_streams,
+                                             cfg_answer);
+    if (ret) {
+        return gb_errno_to_op_result(ret);
+    }
+
+    ret = device_camera_power_down(info->dev);
+    if (ret) {
+        return gb_errno_to_op_result(ret);
+    }
+    info->state = STATE_UNCONFIGURED;
+
+    return 0;
+}
+
+/**
  * @brief Capture thread for handling host capture command.
+ *
+ * When host send the capture into device, it queues the capture command and its
+ * parameter into a queue, it dequeues after driver finishes its operation by
+ * itself or by stop function.
+ *
+ * The queue will be flushed when the flush funciton called by host.
  *
  * @param data The regular thread data.
  * @return None.
@@ -117,6 +215,9 @@ static void *capt_thread(void *data)
             if (ret) {
                 gb_error("error in camera capture thread. \n");
             }
+            /* wait for capture stop, by device or flush function */
+            sem_wait(&info->capt_sem);
+
             info->state = STATE_CONFIGURED;
             free(capt_req);
         }
@@ -208,8 +309,7 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
     struct gb_camera_configure_streams_response *response;
     struct gb_stream_config_req  *cfg_sup_reqest;
     struct gb_stream_config_resp *cfg_ans_resp;
-    struct streams_cfg_sup *cfg_support;
-    struct streams_cfg_ans *cfg_answer;
+    struct streams_cfg_ans *cfg_answer = NULL;
     uint16_t num_streams;
     uint16_t flags;
     uint32_t size;
@@ -228,97 +328,43 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
          * if num_stream is not 0, set configuration to camera and then get
          * final setting from camera.
          */
-        if (info->state != STATE_UNCONFIGURED) {
-            return GB_OP_INVALID;
-        }
-
-        ret = device_camera_get_required_size(info->dev, SIZE_CONFIG_SUPPORT,
-                                              &size);
-        if (ret) {
-            return gb_errno_to_op_result(ret);
-        }
-
-        /* set configure to camera module */
-        cfg_support = malloc(request->num_streams * sizeof(cfg_support));
         cfg_sup_reqest = request->config;
-        for (i = 0; i < num_streams; i++) {
-            cfg_support[i].width = le16_to_cpu(cfg_sup_reqest[i].width);
-            cfg_support[i].height = le16_to_cpu(cfg_sup_reqest[i].height);
-            cfg_support[i].format = le16_to_cpu(cfg_sup_reqest[i].format);
-            cfg_support[i].padding = le16_to_cpu(cfg_sup_reqest[i].padding);
-        }
-        /* driver shall check the num_streams, it can't exceed its capability */
-        ret = device_camera_set_streams_cfg(info->dev, num_streams,
-                                            cfg_support);
-        free(cfg_support);
-        if (ret) {
-            return gb_errno_to_op_result(ret);
-        }
 
-        /* after set, get current configure */
-        ret = device_camera_get_required_size(info->dev, SIZE_CONFIG_CURRENT,
+        ret = device_camera_get_required_size(info->dev, SIZE_CONFIG_ANSWER,
                                               &size);
         if (ret) {
             return gb_errno_to_op_result(ret);
         }
 
         cfg_answer = malloc(size);
-        /* the flags reflect does camera alter the setting from host */
-        ret = device_camera_get_current_strm_cfg(info->dev, &flags, cfg_answer);
+        if (!cfg_answer) {
+            return GB_OP_NO_MEMORY;
+        }
+        ret = set_streams_cfg(num_streams, &flags, cfg_sup_reqest, cfg_answer);
         if (ret) {
-            return gb_errno_to_op_result(ret);
+            goto err_free_mem;
         }
 
-        /* if driver not accpet the settings, it stay on unconfigured */
-        if (!flags) {
-            info->state = STATE_CONFIGURED;
-            ret = device_camera_power_up(info->dev);
-            if (ret) {
-                return gb_errno_to_op_result(ret);
-            }
-        }
     } else {
         /**
          *  if num_streams is 0, it means the host queries camera supported
          *  configurations or set camer to unconfigured state
          */
-        if (info->state != STATE_CONFIGURED) {
-            return GB_OP_INVALID;
-        }
-
-        /* ask supported configures */
         ret = device_camera_get_required_size(info->dev, SIZE_CONFIG_SUPPORT,
                                               &size);
         if (ret) {
             return gb_errno_to_op_result(ret);
         }
-
         num_streams = size / sizeof(cfg_answer);
+
         cfg_answer = malloc(size);
         if (!cfg_answer) {
             return GB_OP_NO_MEMORY;
         }
 
-        ret = device_camera_get_support_strm_cfg(info->dev, num_streams,
-                                                 cfg_answer);
+        ret = get_supported_cfg(num_streams, cfg_answer);
         if (ret) {
-            return gb_errno_to_op_result(ret);
-        }
-
-        ret = device_camera_power_down(info->dev);
-        if (ret) {
-            return gb_errno_to_op_result(ret);
-        }
-
-        ret = device_camera_power_down(info->dev);
-        if (ret) {
-            return gb_errno_to_op_result(ret);
-        }
-
-        info->state = STATE_UNCONFIGURED;
-        ret = device_camera_power_down(info->dev);
-        if (ret) {
-            return gb_errno_to_op_result(ret);
+            goto err_free_mem;
         }
     }
 
@@ -336,10 +382,14 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
         cfg_ans_resp[i].data_type = cfg_answer[i].data_type;
         cfg_ans_resp[i].max_size = cpu_to_le32(cfg_answer[i].max_size);
     }
-    free(cfg_answer);
 
+    free(cfg_answer);
     /* send back the response to host by return */
     return GB_OP_SUCCESS;
+
+err_free_mem:
+    free(cfg_answer);
+    return ret;
 }
 
 /**
@@ -355,6 +405,7 @@ static uint8_t gb_camera_capture(struct gb_operation *operation)
     struct gb_camera_capture_request *request;
     struct capture_info *capt_info;
     struct capture_req *capt_req; /* into queue */
+    irqstate_t flags;
 
     if (info->state != STATE_CONFIGURED && info->state != STATE_STREAMING) {
         return GB_OP_INVALID;
@@ -385,11 +436,15 @@ static uint8_t gb_camera_capture(struct gb_operation *operation)
 
     info->last_id = capt_info->request_id;
 
+    flags = irqsave();
     if (sq_empty(&info->capt_queue)) {
         sq_addlast(&capt_req->entry, &info->capt_queue);
+        irqrestore(flags);
+
         sem_post(&info->capt_sem);
     } else {
         sq_addlast(&capt_req->entry, &info->capt_queue);
+        irqrestore(flags);
     }
 
     return GB_OP_SUCCESS;
@@ -414,11 +469,17 @@ static uint8_t gb_camera_flush(struct gb_operation *operation)
         return GB_OP_INVALID;
     }
 
-    info->flush = 1;
+    if (!sq_empty(&info->capt_queue)) {
+        info->flush = 1;
+    }
 
     ret = device_camera_stop_capture(info->dev, &request_id);
     if (ret) {
         return gb_errno_to_op_result(ret);
+    }
+
+    if (info->state == STATE_STREAMING) {
+        sem_post(&info->flush_sem);
     }
 
     response = gb_operation_alloc_response(operation, sizeof(*response));
@@ -510,6 +571,7 @@ static int gb_camera_init(unsigned int cport)
 
     info->cport = cport;
 
+    info->last_id = 0;
     info->state = STATE_REMOVED; /* STATE_INSERTED ? */
 
     info->dev = device_open(DEVICE_TYPE_CAMERA_HW, 0);
@@ -527,13 +589,20 @@ static int gb_camera_init(unsigned int cport)
         goto err_close_device;
     }
 
-    ret = pthread_create(&info->capt_thread, NULL, capt_thread, info);
+    ret = sem_init(&info->flush_sem, 0, 0);
     if (ret) {
         goto err_destroy_capt_sem;
     }
 
+    ret = pthread_create(&info->capt_thread, NULL, capt_thread, info);
+    if (ret) {
+        goto err_destroy_flush_sem;
+    }
+
     return 0;
 
+err_destroy_flush_sem:
+    sem_destroy(&info->capt_sem);
 err_destroy_capt_sem:
     sem_destroy(&info->capt_sem);
 err_close_device:
@@ -561,10 +630,12 @@ static void gb_camera_exit(unsigned int cport)
     if (info->capt_thread != (pthread_t)0) {
         info->thread_stop = 1;
         sem_post(&info->capt_sem);
+        sem_post(&info->flush_sem);
         pthread_join(info->capt_thread, NULL);
     }
 
     sem_destroy(&info->capt_sem);
+    sem_destroy(&info->flush_sem);
 
     while (!sq_empty(&info->capt_queue)) {
         capt_info = (struct capture_info *) sq_remfirst(&info->capt_queue);
@@ -590,7 +661,7 @@ static struct gb_operation_handler gb_camera_handlers[] = {
 };
 
 /**
- * @brief Greybus Camera Protocol PHY driver ops
+ * @brief Greybus Camera Protocol driver ops
  */
 static struct gb_driver gb_camera_driver = {
     .init = gb_camera_init,
