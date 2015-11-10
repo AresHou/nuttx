@@ -51,7 +51,7 @@
  * Query required data size to report
  */
 #define SIZE_CONFIG_SUPPORT     0
-#define SIZE_CONFIG_CURRENT     1
+#define SIZE_CONFIG_ANSWER      1
 #define SIZE_META_DATA          2
 
 /**
@@ -141,13 +141,15 @@ struct device_camera_type_ops {
                              uint32_t *size);
     /** Get camera module supported configure */
     int (*get_support_strm_cfg)(struct device *dev, uint16_t num_streams,
-                                   struct streams_cfg_ans *config);
+                                struct streams_cfg_ans *config);
     /** Set configures to camera module */
     int (*set_streams_cfg)(struct device *dev, uint16_t num_streams,
-                           struct streams_cfg_sup *config);
+                           uint16_t *flags,
+                           struct streams_cfg_sup *config,
+                           struct streams_cfg_ans *answer);
     /** Get current configures from camera module */
     int (*get_current_strm_cfg)(struct device *dev, uint16_t *flags,
-                                   struct streams_cfg_ans *config);
+                                struct streams_cfg_ans *config);
     /** Start Capture */
     int (*start_capture)(struct device *dev, struct capture_info *capt_info);
     /** stop capture */
@@ -198,7 +200,8 @@ static inline int device_camera_power_down(struct device *dev)
  * @brief Get capabilities of camera module
  *
  * @param dev Pointer to structure of device data
- * @param capabilities Pointer that will be stored Camera Module capabilities.
+ * @param size The size of capabilities data length from protocol to driver
+ * @param capabilities Pointer that will be stored camera module capabilities.
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_capabilities(struct device *dev, uint16_t *size,
@@ -220,7 +223,8 @@ static inline int device_camera_capabilities(struct device *dev, uint16_t *size,
  * @brief Get required data size of camera module information
  *
  * @param dev Pointer to structure of device data
- * @param capabilities Pointer that will be stored Camera Module capabilities.
+ * @param operation The id of operation
+ * @param size Get the required buffer size from driver
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_get_required_size(struct device *dev,
@@ -270,7 +274,9 @@ static inline int device_camera_get_support_strm_cfg(struct device *dev,
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_set_streams_cfg(struct device *dev,
-                           uint16_t num_streams, struct streams_cfg_sup *config)
+                           uint16_t num_streams, uint16_t *flags,
+                           struct streams_cfg_sup *config,
+                           struct streams_cfg_ans *answer)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
@@ -279,7 +285,7 @@ static inline int device_camera_set_streams_cfg(struct device *dev,
     }
     if (DEVICE_DRIVER_GET_OPS(dev, camera)->set_streams_cfg) {
         return DEVICE_DRIVER_GET_OPS(dev, camera)->set_streams_cfg(dev,
-                                                           num_streams, config);
+                                            num_streams, flags, config, answer);
     }
     return -ENOSYS;
 }
@@ -359,7 +365,7 @@ static inline int device_camera_stop_capture(struct device *dev,
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_get_meta_data(struct device *dev,
-                                               struct meta_data_info *meta_data)
+                                              struct meta_data_info *meta_data)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
@@ -367,7 +373,8 @@ static inline int device_camera_get_meta_data(struct device *dev,
         return -ENODEV;
     }
     if (DEVICE_DRIVER_GET_OPS(dev, camera)->get_meta_data) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->get_meta_data(dev, meta_data);
+        return DEVICE_DRIVER_GET_OPS(dev, camera)->get_meta_data(dev,
+                                                                 meta_data);
     }
     return -ENOSYS;
 }
