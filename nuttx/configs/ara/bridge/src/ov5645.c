@@ -1380,6 +1380,23 @@ static int op_get_meta_data(struct device *dev,
     return 0;
 }
 
+//[TODO]
+#if 0
+static int ov5640_init_mode(enum ov5640_frame_rate frame_rate,
+                enum ov5640_mode mode, enum ov5640_mode orig_mode)
+{
+    int ret = 0;
+    
+    
+    
+    return ret;
+  
+err_mode:
+    
+    return ret;
+}
+#endif
+
 /**
  * @brief Open camera device
  * @param dev pointer to structure of device data
@@ -1400,6 +1417,47 @@ static int ov5645_dev_open(struct device *dev)
     info = device_get_private(dev);
 
     info->state = OV5645_STATE_CLOSED;
+    
+    //[TODO]init sensor size and format
+    //memset(&ov5640_data, 0, sizeof(ov5640_data));
+#if 0   
+    sensor_info.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+    sensor_info.pix.width = 640;
+    sensor_info.pix.height = 480;
+#endif
+    //[TODO] Do MIPI CSI-2 initialization...
+    // Should I call ov5645_csi_init() located at csi_rx_init.c?
+    
+    info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_sup));
+    if (info->str_cfg_sup == NULL) {
+        ret = -ENOMEM;
+        goto err_free_i2c;
+    }  
+
+    /* init mode support */
+    for(i = 0; i < N_WIN_SIZES; i++)
+    {
+        info->str_cfg_sup[i].width = (uint16_t)ov5645_mode_settings[i].width;
+        info->str_cfg_sup[i].height = (uint16_t)ov5645_mode_settings[i].height;
+        //info->str_cfg_sup[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
+    }
+    info->virtual_channel = VIRTUAL_CHANNEL;
+    info->data_type = DATA_TYPE;
+    info->max_size = MAX_WIDTH * MAX_HEIGHT;
+
+   
+    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct meta_data_info));
+    if (info->mdata_info == NULL) {
+        ret = -ENOMEM;
+        goto err_free_i2c;
+    }
+    
+    /* init meta data */
+    info->mdata_info->request_id = req_id;
+    info->mdata_info->frame_number = FRAME_NUMBER;
+    info->mdata_info->stream = STREAM;
+    info->mdata_info->padding = 0;
+    info->mdata_info->data = m_data;
 
     /* Power on sensor */
     ret = op_power_up(info->dev);
@@ -1435,57 +1493,35 @@ static int ov5645_dev_open(struct device *dev)
         goto err_free_i2c;
     }
 
-    printf("Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
-
-    info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_sup));
-    if (info->str_cfg_sup == NULL) {
-        ret = -ENOMEM;
+    printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);       
+    
+    //[TODO] Do ov5645 mode initialization...
+    #if 0
+    if (ov5640_init_mode(frame_rate, ov5640_mode_INIT, ov5640_mode_INIT)) {
+        ret = -EINVAL;
         goto err_free_i2c;
     }
-
-    /* init mode support */
-    for(i = 0; i < N_WIN_SIZES; i++)
-    {
-        info->str_cfg_sup[i].width = (uint16_t)ov5645_mode_settings[i].width;
-        info->str_cfg_sup[i].height = (uint16_t)ov5645_mode_settings[i].height;
-        //info->str_cfg_sup[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
-    }
-    info->virtual_channel = VIRTUAL_CHANNEL;
-    info->data_type = DATA_TYPE;
-    info->max_size = MAX_WIDTH * MAX_HEIGHT;
-
-    /* init meta data */
-    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct meta_data_info));
-    if (info->mdata_info == NULL) {
-        ret = -ENOMEM;
-        goto err_free_i2c;
-    }
-    info->mdata_info->request_id = req_id;
-    info->mdata_info->frame_number = FRAME_NUMBER;
-    info->mdata_info->stream = STREAM;
-    info->mdata_info->padding = 0;
-    info->mdata_info->data = m_data;
-
+    #endif
+    
     if (set_mode(ov5645_init_setting_30fps_VGA_640_480, info->cam_i2c)) {
         ret = -EINVAL;
-        goto err_free_info;
-    }
+        goto err_free_i2c;
+    }    
 
     info->state = OV5645_STATE_OPEN;
 
     return ret;
 
-err_free_i2c:
-    up_i2cuninitialize(info->cam_i2c);
 err_power_down:
     op_power_down(dev);
-err_free_info:
-    free(info);
-
+err_free_i2c:
+    up_i2cuninitialize(info->cam_i2c);
+//err_free_info:
     free(info->str_cfg_sup);
     free(info->mdata_info);
-
+    free(info);
     info = NULL;
+    
     return ret;
 }
 
