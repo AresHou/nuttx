@@ -105,26 +105,31 @@
 /* QSXGA */
 #define QSXGA_WIDTH         2592
 #define QSXGA_HEIGHT        1944
-/* XGA */
+/* SXGA */
 #define SXGA_WIDTH          1280
 #define SXGA_HEIGHT         960
-
+/* XGA */
+#define XGA_WIDTH          1024
+#define XGA_HEIGHT         768
+/* MAX */
 #define MAX_WIDTH           2592
 #define MAX_HEIGHT          1944
 
 enum ov5645_mode_enum {
     ov5645_mode_MIN = 0,
-    ov5645_mode_VGA_640_480 = 0,
-    ov5645_mode_QVGA_320_240 = 1,
-    ov5645_mode_720P_1280_720 = 2,
-    ov5645_mode_1080P_1920_1080 = 3,
-    ov5645_mode_QSXGA_2592_1944 = 4,
-    ov5645_mode_XGA_1024_768 = 5,
-    ov5645_mode_SXGA_1280_960 = 6,
-    ov5645_mode_MAX = 6,
+    ov5645_mode_init_VGA_640_480 = 0,
+    ov5645_mode_VGA_640_480 = 1,
+    ov5645_mode_QVGA_320_240 = 2,
+    ov5645_mode_720P_1280_720 = 3,
+    ov5645_mode_1080P_1920_1080 = 4,
+    ov5645_mode_QSXGA_2592_1944 = 5,
+    ov5645_mode_XGA_1024_768 = 6,
+    ov5645_mode_SXGA_1280_960 = 7,
+    ov5645_mode_MAX = 8,
     ov5645_mode_INIT = 0xff, /*only for sensor init*/
 };
 
+#if 0
 enum ov5645_downsize_mode {
     SUBSAMPLING,
     SCALING,
@@ -134,6 +139,7 @@ enum ov5645_frame_rate {
     _15_fps,
     _30_fps
 };
+#endif
 
 /**
  * @brief camera device state
@@ -141,6 +147,24 @@ enum ov5645_frame_rate {
 enum ov5645_state {
     OV5645_STATE_OPEN,
     OV5645_STATE_CLOSED,
+};
+
+enum ov5645_pixel_format {
+    _8bit_RGB_RAW,
+    _10bit_RGB_RAW,
+    RGB565,
+    RGB555,
+    RGB444,
+    YUV422,
+    YUV420,
+    YCbCr422,
+    format_max = 0xff,
+};
+
+struct pixel_format {
+    uint32_t    width;
+    uint32_t    height;
+    uint32_t    pixelformat;
 };
 
 /**
@@ -154,6 +178,7 @@ struct sensor_info {
     struct streams_cfg_ans *str_cfg_ans;
     struct capture_info *cap_info;
     struct meta_data_info *mdata_info;
+    struct pixel_format pix_fmt;
     uint8_t virtual_channel;
     uint8_t data_type;
     uint32_t max_size;
@@ -174,6 +199,7 @@ struct reg_val_tbl {
  */
 struct reg_val_tbl ov5645_init_setting_30fps_VGA_640_480[] = {
     /* VGA 640 480 */
+    /* YCbCr initial setting */
     /* initial setting, Sysclk = 56Mhz, MIPI 2 lane 224MBps */
     {0x3103, 0x11}, /* select PLL input clock */
     {0x3008, 0x82}, /* software reset */
@@ -476,51 +502,51 @@ struct reg_val_tbl ov5645_init_setting_30fps_VGA_640_480[] = {
  */
 struct reg_val_tbl ov5645_setting_30fps_VGA_640_480[] = {
     {0x3618, 0x00},
-    {0x3035, 0x11}, 
-    {0x3036, 0x46}, 
+    {0x3035, 0x11},
+    {0x3036, 0x46},
     {0x3600, 0x09},
-    {0x3601, 0x43}, 
-    {0x3708, 0x64}, 
+    {0x3601, 0x43},
+    {0x3708, 0x64},
     {0x370c, 0xc3},
     {0x3814, 0x31},
-    {0x3815, 0x31}, 
-    {0x3800, 0x00}, 
+    {0x3815, 0x31},
+    {0x3800, 0x00},
     {0x3801, 0x00},
-    {0x3802, 0x00}, 
-    {0x3803, 0x04}, 
+    {0x3802, 0x00},
+    {0x3803, 0x04},
     {0x3804, 0x0a},
-    {0x3805, 0x3f}, 
-    {0x3806, 0x07}, 
+    {0x3805, 0x3f},
+    {0x3806, 0x07},
     {0x3807, 0x9b},
-    {0x3808, 0x02}, 
-    {0x3809, 0x80}, 
+    {0x3808, 0x02},
+    {0x3809, 0x80},
     {0x380a, 0x01},
-    {0x380b, 0xe0}, 
-    {0x380c, 0x07}, 
+    {0x380b, 0xe0},
+    {0x380c, 0x07},
     {0x380d, 0x68},
-    {0x380e, 0x04}, 
-    {0x380f, 0x38}, 
+    {0x380e, 0x04},
+    {0x380f, 0x38},
     {0x3810, 0x00},
-    {0x3811, 0x10}, 
-    {0x3812, 0x00}, 
+    {0x3811, 0x10},
+    {0x3812, 0x00},
     {0x3813, 0x06},
-    {0x3820, 0x41}, 
-    {0x3821, 0x07}, 
+    {0x3820, 0x41},
+    {0x3821, 0x07},
     {0x3a02, 0x03},
-    {0x3a03, 0xd8}, 
-    {0x3a08, 0x01}, 
+    {0x3a03, 0xd8},
+    {0x3a08, 0x01},
     {0x3a09, 0x0e},
-    {0x3a0a, 0x00}, 
-    {0x3a0b, 0xf6}, 
+    {0x3a0a, 0x00},
+    {0x3a0b, 0xf6},
     {0x3a0e, 0x03},
-    {0x3a0d, 0x04}, 
-    {0x3a14, 0x03}, 
+    {0x3a0d, 0x04},
+    {0x3a14, 0x03},
     {0x3a15, 0xd8},
-    {0x4004, 0x02}, 
-    {0x4005, 0x18}, 
+    {0x4004, 0x02},
+    {0x4005, 0x18},
     {0x4837, 0x16},
-    {0x3503, 0x00},   
-    
+    {0x3503, 0x00},
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -528,9 +554,9 @@ struct reg_val_tbl ov5645_setting_30fps_VGA_640_480[] = {
  * @brief ov5645 sensor registers for 30fps QVGA
  */
 struct reg_val_tbl ov5645_setting_30fps_QVGA_320_240[] = {
-    
+
     /* TBD */
-     
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -538,53 +564,53 @@ struct reg_val_tbl ov5645_setting_30fps_QVGA_320_240[] = {
  * @brief ov5645 sensor registers for 30fps 720p
  */
 struct reg_val_tbl ov5645_setting_30fps_720p_1280_720[] = {
-    {0x3618, 0x00}, 
-    {0x3035, 0x11}, 
-    {0x3036, 0x54}, 
-    {0x3600, 0x09}, 
-    {0x3601, 0x43}, 
-    {0x3708, 0x64}, 
-    {0x370c, 0xc3}, 
+    {0x3618, 0x00},
+    {0x3035, 0x11},
+    {0x3036, 0x54},
+    {0x3600, 0x09},
+    {0x3601, 0x43},
+    {0x3708, 0x64},
+    {0x370c, 0xc3},
     {0x3814, 0x31},
-    {0x3815, 0x31}, 
-    {0x3800, 0x00}, 
+    {0x3815, 0x31},
+    {0x3800, 0x00},
     {0x3801, 0x00},
-    {0x3802, 0x00}, 
-    {0x3803, 0xfa}, 
+    {0x3802, 0x00},
+    {0x3803, 0xfa},
     {0x3804, 0x0a},
-    {0x3805, 0x3f}, 
-    {0x3806, 0x06}, 
+    {0x3805, 0x3f},
+    {0x3806, 0x06},
     {0x3807, 0xa9},
-    {0x3808, 0x05}, 
-    {0x3809, 0x00}, 
+    {0x3808, 0x05},
+    {0x3809, 0x00},
     {0x380a, 0x02},
-    {0x380b, 0xd0}, 
-    {0x380c, 0x07}, 
+    {0x380b, 0xd0},
+    {0x380c, 0x07},
     {0x380d, 0x64},
-    {0x380e, 0x02}, 
-    {0x380f, 0xe4}, 
+    {0x380e, 0x02},
+    {0x380f, 0xe4},
     {0x3810, 0x00},
-    {0x3811, 0x10}, 
-    {0x3812, 0x00}, 
+    {0x3811, 0x10},
+    {0x3812, 0x00},
     {0x3813, 0x04},
-    {0x3820, 0x41}, 
-    {0x3821, 0x07}, 
+    {0x3820, 0x41},
+    {0x3821, 0x07},
     {0x3a02, 0x02},
-    {0x3a03, 0xe4}, 
-    {0x3a08, 0x01}, 
+    {0x3a03, 0xe4},
+    {0x3a08, 0x01},
     {0x3a09, 0xbc},
-    {0x3a0a, 0x01}, 
-    {0x3a0b, 0x72}, 
+    {0x3a0a, 0x01},
+    {0x3a0b, 0x72},
     {0x3a0e, 0x01},
-    {0x3a0d, 0x02}, 
-    {0x3a14, 0x02}, 
+    {0x3a0d, 0x02},
+    {0x3a14, 0x02},
     {0x3a15, 0xe4},
-    {0x4004, 0x02}, 
-    {0x4005, 0x18}, 
-    {0x4837, 0x16}, 
-    {0x3503, 0x00}, 
+    {0x4004, 0x02},
+    {0x4005, 0x18},
+    {0x4837, 0x16},
+    {0x3503, 0x00},
     {0x3008, 0x02},
-    
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -592,55 +618,55 @@ struct reg_val_tbl ov5645_setting_30fps_720p_1280_720[] = {
  * @brief ov5645 sensor registers for 30fps 1080p
  */
 struct reg_val_tbl ov5645_setting_30fps_1080p_1920_1080[] = {
-    {0x3612, 0xab},   
-    {0x3614, 0x50}, 
+    {0x3612, 0xab},
+    {0x3614, 0x50},
     {0x3618, 0x04},
-    {0x3035, 0x21}, 
+    {0x3035, 0x21},
     {0x3036, 0x70},
-    {0x3600, 0x08}, 
-    {0x3601, 0x33}, 
+    {0x3600, 0x08},
+    {0x3601, 0x33},
     {0x3708, 0x63},
-    {0x370c, 0xc0}, 
-    {0x3800, 0x01}, 
-    {0x3801, 0x50}, 
-    {0x3802, 0x01}, 
-    {0x3803, 0xb2}, 
-    {0x3804, 0x08}, 
-    {0x3805, 0xef}, 
-    {0x3806, 0x05}, 
-    {0x3807, 0xf1}, 
-    {0x3808, 0x07}, 
-    {0x3809, 0x80}, 
-    {0x380a, 0x04}, 
-    {0x380b, 0x38}, 
-    {0x380c, 0x09}, 
-    {0x380d, 0xc4}, 
-    {0x380e, 0x04}, 
-    {0x380f, 0x60}, 
+    {0x370c, 0xc0},
+    {0x3800, 0x01},
+    {0x3801, 0x50},
+    {0x3802, 0x01},
+    {0x3803, 0xb2},
+    {0x3804, 0x08},
+    {0x3805, 0xef},
+    {0x3806, 0x05},
+    {0x3807, 0xf1},
+    {0x3808, 0x07},
+    {0x3809, 0x80},
+    {0x380a, 0x04},
+    {0x380b, 0x38},
+    {0x380c, 0x09},
+    {0x380d, 0xc4},
+    {0x380e, 0x04},
+    {0x380f, 0x60},
     {0x3810, 0x00},
-    {0x3811, 0x10}, 
-    {0x3812, 0x00}, 
+    {0x3811, 0x10},
+    {0x3812, 0x00},
     {0x3813, 0x04},
-    {0x3814, 0x11}, 
-    {0x3815, 0x11}, 
-    {0x3820, 0x41}, 
-    {0x3821, 0x07}, 
-    {0x3a02, 0x04}, 
+    {0x3814, 0x11},
+    {0x3815, 0x11},
+    {0x3820, 0x41},
+    {0x3821, 0x07},
+    {0x3a02, 0x04},
     {0x3a03, 0x90},
-    {0x3a08, 0x01}, 
-    {0x3a09, 0xf8}, 
+    {0x3a08, 0x01},
+    {0x3a09, 0xf8},
     {0x3a0a, 0x01},
-    {0x3a0b, 0xf8}, 
-    {0x3a0e, 0x02}, 
+    {0x3a0b, 0xf8},
+    {0x3a0e, 0x02},
     {0x3a0d, 0x02},
-    {0x3a14, 0x04}, 
-    {0x3a15, 0x90}, 
+    {0x3a14, 0x04},
+    {0x3a15, 0x90},
     {0x3a18, 0x00},
-    {0x4004, 0x02}, 
-    {0x4005, 0x18}, 
-    {0x4837, 0x10}, 
-    {0x3503, 0x00},   
-    
+    {0x4004, 0x02},
+    {0x4005, 0x18},
+    {0x4837, 0x10},
+    {0x3503, 0x00},
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -650,60 +676,60 @@ struct reg_val_tbl ov5645_setting_30fps_1080p_1920_1080[] = {
 struct reg_val_tbl ov5645_setting_15fps_QSXGA_2592_1944[] = {
     {0x3820, 0x40},
     {0x3821, 0x06}, /*disable flip*/
-    {0x3035, 0x21}, 
-    {0x3036, 0x54}, 
+    {0x3035, 0x21},
+    {0x3036, 0x54},
     {0x3c07, 0x07},
-    {0x3c09, 0xc2}, 
-    {0x3c0a, 0x9c}, 
+    {0x3c09, 0xc2},
+    {0x3c0a, 0x9c},
     {0x3c0b, 0x40},
-    {0x3820, 0x40}, 
-    {0x3821, 0x06}, 
+    {0x3820, 0x40},
+    {0x3821, 0x06},
     {0x3814, 0x11},
-    {0x3815, 0x11}, 
-    {0x3800, 0x00}, 
+    {0x3815, 0x11},
+    {0x3800, 0x00},
     {0x3801, 0x00},
-    {0x3802, 0x00}, 
-    {0x3803, 0x00}, 
+    {0x3802, 0x00},
+    {0x3803, 0x00},
     {0x3804, 0x0a},
-    {0x3805, 0x3f}, 
-    {0x3806, 0x07}, 
+    {0x3805, 0x3f},
+    {0x3806, 0x07},
     {0x3807, 0x9f},
-    {0x3808, 0x0a}, 
-    {0x3809, 0x20}, 
+    {0x3808, 0x0a},
+    {0x3809, 0x20},
     {0x380a, 0x07},
-    {0x380b, 0x98}, 
-    {0x380c, 0x0b}, 
+    {0x380b, 0x98},
+    {0x380c, 0x0b},
     {0x380d, 0x1c},
-    {0x380e, 0x07}, 
-    {0x380f, 0xb0}, 
+    {0x380e, 0x07},
+    {0x380f, 0xb0},
     {0x3810, 0x00},
-    {0x3811, 0x10}, 
-    {0x3812, 0x00}, 
+    {0x3811, 0x10},
+    {0x3812, 0x00},
     {0x3813, 0x04},
-    {0x3618, 0x04}, 
-    {0x3612, 0xab}, 
+    {0x3618, 0x04},
+    {0x3612, 0xab},
     {0x3708, 0x21},
-    {0x3709, 0x12}, 
-    {0x370c, 0x00}, 
+    {0x3709, 0x12},
+    {0x370c, 0x00},
     {0x3a02, 0x03},
-    {0x3a03, 0xd8}, 
-    {0x3a08, 0x01}, 
+    {0x3a03, 0xd8},
+    {0x3a08, 0x01},
     {0x3a09, 0x27},
-    {0x3a0a, 0x00}, 
-    {0x3a0b, 0xf6}, 
+    {0x3a0a, 0x00},
+    {0x3a0b, 0xf6},
     {0x3a0e, 0x03},
-    {0x3a0d, 0x04}, 
-    {0x3a14, 0x03}, 
+    {0x3a0d, 0x04},
+    {0x3a14, 0x03},
     {0x3a15, 0xd8},
-    {0x4001, 0x02}, 
-    {0x4004, 0x06}, 
+    {0x4001, 0x02},
+    {0x4004, 0x06},
     {0x4713, 0x03},
-    {0x4407, 0x04}, 
-    {0x460b, 0x35}, 
+    {0x4407, 0x04},
+    {0x460b, 0x35},
     {0x460c, 0x22},
-    {0x3824, 0x02}, 
-    {0x5001, 0x83},    
-    
+    {0x3824, 0x02},
+    {0x5001, 0x83},
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -712,50 +738,50 @@ struct reg_val_tbl ov5645_setting_15fps_QSXGA_2592_1944[] = {
  */
 struct reg_val_tbl ov5645_setting_30fps_XGA_1024_768[] = {
     {0x3618, 0x00},
-    {0x3035, 0x11}, 
-    {0x3036, 0x70}, 
+    {0x3035, 0x11},
+    {0x3036, 0x70},
     {0x3600, 0x09},
-    {0x3601, 0x43}, 
-    {0x3708, 0x64}, 
+    {0x3601, 0x43},
+    {0x3708, 0x64},
     {0x370c, 0xc3},
     {0x3814, 0x31},
-    {0x3815, 0x31}, 
-    {0x3800, 0x00}, 
+    {0x3815, 0x31},
+    {0x3800, 0x00},
     {0x3801, 0x00},
-    {0x3802, 0x00}, 
-    {0x3803, 0x06}, 
+    {0x3802, 0x00},
+    {0x3803, 0x06},
     {0x3804, 0x0a},
-    {0x3805, 0x3f}, 
-    {0x3806, 0x07}, 
+    {0x3805, 0x3f},
+    {0x3806, 0x07},
     {0x3807, 0x9d},
-    {0x3808, 0x04}, 
-    {0x3809, 0x00}, 
+    {0x3808, 0x04},
+    {0x3809, 0x00},
     {0x380a, 0x03},
-    {0x380b, 0x00}, 
-    {0x380c, 0x07}, 
+    {0x380b, 0x00},
+    {0x380c, 0x07},
     {0x380d, 0x68},
-    {0x380e, 0x03}, 
-    {0x380f, 0xd8}, 
+    {0x380e, 0x03},
+    {0x380f, 0xd8},
     {0x3810, 0x00},
-    {0x3811, 0x10}, 
-    {0x3812, 0x00}, 
+    {0x3811, 0x10},
+    {0x3812, 0x00},
     {0x3813, 0x06},
-    {0x3820, 0x41}, 
-    {0x3821, 0x07}, 
+    {0x3820, 0x41},
+    {0x3821, 0x07},
     {0x3a02, 0x03},
-    {0x3a03, 0xd8}, 
-    {0x3a08, 0x01}, 
+    {0x3a03, 0xd8},
+    {0x3a08, 0x01},
     {0x3a09, 0xf8},
-    {0x3a0a, 0x01}, 
-    {0x3a0b, 0xa4}, 
+    {0x3a0a, 0x01},
+    {0x3a0b, 0xa4},
     {0x3a0e, 0x02},
-    {0x3a0d, 0x02}, 
-    {0x3a14, 0x03}, 
+    {0x3a0d, 0x02},
+    {0x3a14, 0x03},
     {0x3a15, 0xd8},
-    {0x4004, 0x02}, 
-    {0x4005, 0x18}, 
+    {0x4004, 0x02},
+    {0x4005, 0x18},
     {0x4837, 0x16},
-    {0x3503, 0x00}, 
+    {0x3503, 0x00},
 
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
@@ -764,47 +790,47 @@ struct reg_val_tbl ov5645_setting_30fps_XGA_1024_768[] = {
  * @brief ov5645 sensor registers for 30fps SXGA
  */
 struct reg_val_tbl ov5645_setting_30fps_SXGA_1280_960[] = {
-    {0x3618, 0x00}, 
-    {0x3035, 0x21}, 
+    {0x3618, 0x00},
+    {0x3035, 0x21},
     {0x3036, 0x70},
-    {0x3600, 0x09}, 
-    {0x3601, 0x43}, 
+    {0x3600, 0x09},
+    {0x3601, 0x43},
     {0x3708, 0x66},
-    {0x370c, 0xc3}, 
-    {0x3803, 0x06}, 
+    {0x370c, 0xc3},
+    {0x3803, 0x06},
     {0x3806, 0x07},
-    {0x3807, 0x9d}, 
-    {0x3808, 0x05}, 
+    {0x3807, 0x9d},
+    {0x3808, 0x05},
     {0x3809, 0x00},
-    {0x380a, 0x03}, 
-    {0x380b, 0xc0}, 
+    {0x380a, 0x03},
+    {0x380b, 0xc0},
     {0x380c, 0x07},
-    {0x380d, 0x68}, 
-    {0x380e, 0x03}, 
+    {0x380d, 0x68},
+    {0x380e, 0x03},
     {0x380f, 0xd8},
-    {0x3814, 0x31}, 
-    {0x3815, 0x31}, 
+    {0x3814, 0x31},
+    {0x3815, 0x31},
     {0x3820, 0x41},
-    {0x3821, 0x07}, 
-    {0x3a02, 0x03}, 
+    {0x3821, 0x07},
+    {0x3a02, 0x03},
     {0x3a03, 0xd8},
-    {0x3a08, 0x01}, 
-    {0x3a09, 0xf8}, 
+    {0x3a08, 0x01},
+    {0x3a09, 0xf8},
     {0x3a0a, 0x01},
-    {0x3a0b, 0xa4}, 
-    {0x3a0e, 0x02}, 
+    {0x3a0b, 0xa4},
+    {0x3a0e, 0x02},
     {0x3a0d, 0x02},
-    {0x3a14, 0x03}, 
-    {0x3a15, 0xd8}, 
+    {0x3a14, 0x03},
+    {0x3a15, 0xd8},
     {0x3a18, 0x00},
-    {0x3a19, 0xf8}, 
+    {0x3a19, 0xf8},
     {0x4004, 0x02},
     {0x4005, 0x18},
-    {0x4837, 0x10}, 
+    {0x4837, 0x10},
     {0x3503, 0x00},
     {0x4300, 0x32},
-    {0x4202, 0x00},    
-         
+    {0x4202, 0x00},
+
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
@@ -813,25 +839,35 @@ struct reg_val_tbl ov5645_setting_30fps_SXGA_1280_960[] = {
  */
 struct ov5645_mode_info {
     enum ov5645_mode_enum mode_enum;
-    //enum ov5645_downsize_mode dnsize_mode;
     int width;
     int height;
+    enum ov5645_pixel_format img_fmt;
     struct reg_val_tbl *regs;
 };
 
 struct ov5645_mode_info ov5645_mode_settings[] = {
+    /* VGA - init 640*480*/
+    {
+        .mode_enum   = ov5645_mode_init_VGA_640_480,
+        .width      = VGA_WIDTH,
+        .height     = VGA_HEIGHT,
+        .img_fmt    = YCbCr422,
+        .regs       = ov5645_init_setting_30fps_VGA_640_480,
+    },  
     /* VGA - 640*480*/
     {
         .mode_enum   = ov5645_mode_VGA_640_480,
         .width      = VGA_WIDTH,
         .height     = VGA_HEIGHT,
-        .regs       = ov5645_init_setting_30fps_VGA_640_480,
+        .img_fmt    = YCbCr422,
+        .regs       = ov5645_setting_30fps_VGA_640_480,
     },
     /* QVGA - 320*240*/
     {
         .mode_enum   = ov5645_mode_QVGA_320_240,
         .width      = QVGA_WIDTH,
         .height     = QVGA_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_init_setting_30fps_VGA_640_480,
     },
     /* 720p - 1280*720 */
@@ -839,6 +875,7 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .mode_enum   = ov5645_mode_720P_1280_720,
         .width      = _720P_WIDTH,
         .height     = _720P_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_setting_30fps_720p_1280_720,
     },
     /* 1080p - 1920*1080 */
@@ -846,6 +883,7 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .mode_enum   = ov5645_mode_1080P_1920_1080,
         .width      = _1080P_WIDTH,
         .height     = _1080P_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_setting_30fps_1080p_1920_1080,
     },
     /* QSXGA - 2592*1944 */
@@ -853,21 +891,23 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .mode_enum   = ov5645_mode_QSXGA_2592_1944,
         .width      = QSXGA_WIDTH,
         .height     = QSXGA_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_setting_15fps_QSXGA_2592_1944,
     },
      /* XGA - 1024*768 */
     {
         .mode_enum   = ov5645_mode_XGA_1024_768,
-        .width      = SXGA_WIDTH,
-        .height     = SXGA_HEIGHT,
+        .width      = XGA_WIDTH,
+        .height     = XGA_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_setting_30fps_XGA_1024_768,
-    },   
-    
-    /* SXGA - 1024*960 */
+    },
+    /* SXGA - 1280*960 */
     {
         .mode_enum   = ov5645_mode_SXGA_1280_960,
         .width      = SXGA_WIDTH,
         .height     = SXGA_HEIGHT,
+        .img_fmt    = YCbCr422,
         .regs       = ov5645_setting_30fps_SXGA_1280_960,
     }
 };
@@ -996,11 +1036,19 @@ static int set_mode(struct reg_val_tbl *vals, struct i2c_dev_s *cam_i2c)
         return -EIO;
     }
 
+    /* [TODO] initial mipi dphy, including setup data type and lanes */
+
     /* setup registers */
     ret = data_write_array(cam_i2c, vals);
     if (ret){
         return ret;
     }
+    
+    /* [TODO] Setup virtual channel */
+    
+    /* [TODO] wait for mipi sensor ready */
+    
+    /* [TODO] wait for mipi stable */
 
     return ret;
 }
@@ -1192,8 +1240,6 @@ int op_set_streams_cfg(struct device *dev, uint16_t num_streams,
     struct sensor_info *info = NULL;
     uint8_t i;
 
-    printf("[bsq]%s+\n", __func__);
-
     if (!dev || !device_get_private(dev)) {
         return -EINVAL;
     }
@@ -1203,29 +1249,13 @@ int op_set_streams_cfg(struct device *dev, uint16_t num_streams,
     if (info->state != OV5645_STATE_OPEN) {
         return -EPERM;
     }
-    
-    for(i=0; i < N_WIN_SIZES; i++) {
-        printf("config[i].width=%d\n", config[i].width);
-        printf("config[i].height=%d\n", config[i].height);
-        printf("config[i].format=%d\n", config[i].format);
-        
-        printf("info->str_cfg_sup[i].width=%d\n", info->str_cfg_sup[i].width);
-        printf("info->str_cfg_sup[i].height=%d\n", info->str_cfg_sup[i].height);
-        printf("info->str_cfg_sup[i].format=%d\n", info->str_cfg_sup[i].format);
-
-        
-    }
 
     /* Filter out the data from host request */
     for(i=0; i < N_WIN_SIZES; i++) {
         if(((config[i].width) == (info->str_cfg_sup[i].width)) &&
             ((config[i].height) == (info->str_cfg_sup[i].height)) &&
-            ((config[i].format) == (info->str_cfg_sup[i].format))) {                
-                
-            printf("config[i].width=%d\n", config[i].width);
-            printf("config[i].height=%d\n", config[i].height);
-            printf("config[i].format=%d\n", config[i].format);
-    
+            ((config[i].format) == (info->str_cfg_sup[i].format))) {
+
             answer->width = info->str_cfg_sup[i].width;
             answer->height = info->str_cfg_sup[i].height;
             answer->format = info->str_cfg_sup[i].format;
@@ -1243,7 +1273,6 @@ int op_set_streams_cfg(struct device *dev, uint16_t num_streams,
         }
         *flags = UNSET;
     }
-    printf("[bsq]%s-\n", __func__);
     return 0;
 }
 
@@ -1380,22 +1409,6 @@ static int op_get_meta_data(struct device *dev,
     return 0;
 }
 
-//[TODO]
-#if 0
-static int ov5640_init_mode(enum ov5640_frame_rate frame_rate,
-                enum ov5640_mode mode, enum ov5640_mode orig_mode)
-{
-    int ret = 0;
-    
-    
-    
-    return ret;
-  
-err_mode:
-    
-    return ret;
-}
-#endif
 
 /**
  * @brief Open camera device
@@ -1405,6 +1418,7 @@ err_mode:
 static int ov5645_dev_open(struct device *dev)
 {
     struct sensor_info *info = NULL;
+    enum ov5645_pixel_format ov5645_out_fmt = YCbCr422;
     uint8_t id[ID_SIZE] = {0, 0};
     uint8_t i;
     uint8_t m_data[MATA_DATA_SIZE];
@@ -1417,47 +1431,42 @@ static int ov5645_dev_open(struct device *dev)
     info = device_get_private(dev);
 
     info->state = OV5645_STATE_CLOSED;
-    
-    //[TODO]init sensor size and format
-    //memset(&ov5640_data, 0, sizeof(ov5640_data));
-#if 0   
-    sensor_info.pix.pixelformat = V4L2_PIX_FMT_UYVY;
-    sensor_info.pix.width = 640;
-    sensor_info.pix.height = 480;
-#endif
-    //[TODO] Do MIPI CSI-2 initialization...
-    // Should I call ov5645_csi_init() located at csi_rx_init.c?
-    
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_sup));
     if (info->str_cfg_sup == NULL) {
-        ret = -ENOMEM;
-        goto err_free_i2c;
-    }  
+        return -ENOMEM;
+    }
 
     /* init mode support */
     for(i = 0; i < N_WIN_SIZES; i++)
     {
         info->str_cfg_sup[i].width = (uint16_t)ov5645_mode_settings[i].width;
         info->str_cfg_sup[i].height = (uint16_t)ov5645_mode_settings[i].height;
-        //info->str_cfg_sup[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
+        info->str_cfg_sup[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
     }
     info->virtual_channel = VIRTUAL_CHANNEL;
     info->data_type = DATA_TYPE;
     info->max_size = MAX_WIDTH * MAX_HEIGHT;
 
-   
     info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct meta_data_info));
     if (info->mdata_info == NULL) {
         ret = -ENOMEM;
-        goto err_free_i2c;
+        goto err_free_info;
     }
-    
+
     /* init meta data */
     info->mdata_info->request_id = req_id;
     info->mdata_info->frame_number = FRAME_NUMBER;
     info->mdata_info->stream = STREAM;
     info->mdata_info->padding = 0;
     info->mdata_info->data = m_data;
+
+    info->pix_fmt.pixelformat = ov5645_out_fmt;
+    info->pix_fmt.width = VGA_WIDTH;
+    info->pix_fmt.height = VGA_HEIGHT;  
+
+
+    //[TODO] Do MIPI CSI-2 initialization...
+    // Should we call ov5645_csi_init() located at csi_rx_init.c?
 
     /* Power on sensor */
     ret = op_power_up(info->dev);
@@ -1493,20 +1502,12 @@ static int ov5645_dev_open(struct device *dev)
         goto err_free_i2c;
     }
 
-    printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);       
-    
-    //[TODO] Do ov5645 mode initialization...
-    #if 0
-    if (ov5640_init_mode(frame_rate, ov5640_mode_INIT, ov5640_mode_INIT)) {
-        ret = -EINVAL;
-        goto err_free_i2c;
-    }
-    #endif
-    
+    printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
+
     if (set_mode(ov5645_init_setting_30fps_VGA_640_480, info->cam_i2c)) {
         ret = -EINVAL;
         goto err_free_i2c;
-    }    
+    }
 
     info->state = OV5645_STATE_OPEN;
 
@@ -1516,12 +1517,12 @@ err_power_down:
     op_power_down(dev);
 err_free_i2c:
     up_i2cuninitialize(info->cam_i2c);
-//err_free_info:
+err_free_info:
     free(info->str_cfg_sup);
     free(info->mdata_info);
     free(info);
-    info = NULL;
-    
+    info = NULL;    
+
     return ret;
 }
 
