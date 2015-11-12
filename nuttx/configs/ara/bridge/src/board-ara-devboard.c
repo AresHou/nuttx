@@ -228,14 +228,12 @@ static void board_display_init(void)
 #endif
 }
 
- #if 0 //[BSQ] remove for camera device driver development
 static void board_camera_init(void)
 {
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
     camera_init();
 #endif
 }
- #endif //[BSQ] end of remove for camera device driver development
 
 static void sdb_fixups(void)
 {
@@ -301,7 +299,5 @@ void ara_module_init(void)
 #endif
 
     board_display_init();
-    #if 0 //[BSQ] remove for camera device driver development
     board_camera_init();
-    #endif //[BSQ] end of remove for camera device driver development
 }

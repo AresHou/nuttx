@@ -228,6 +228,7 @@ void ov5645_csi_init(struct cdsi_dev *dev)
     /* Start CDSIRX */
     cdsi_write(dev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
 
+#if 0
     /* Wait Line Initialization finish */
     rdata1 = cdsi_read(dev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
 #ifdef CONFIG_FOR_GOOGLE_IO_DEMO
@@ -244,6 +245,7 @@ void ov5645_csi_init(struct cdsi_dev *dev)
     cdsi_write(dev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS, CDSIRX_DSI_LPTX_MODE_VAL);
     cdsi_write(dev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
                CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
+#endif
 }
 
 struct camera_sensor ov5645_sensor = {

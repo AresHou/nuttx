@@ -45,6 +45,18 @@
 #define FAKE_STREAM       8
 #define REQUEST_SIZE_FAIL 0
 
+enum ov5645_pixel_format {
+    _8bit_RGB_RAW,
+    _10bit_RGB_RAW,
+    RGB565,
+    RGB555,
+    RGB444,
+    YUV422,
+    YUV420,
+    YCbCr422,
+    format_max = 0xff,
+};
+
 uint32_t num_of_support_mode;
 
 static int show_capabilities(struct device *dev)
@@ -141,7 +153,7 @@ static int show_set_streams_cfg(struct device *dev)
 
     config->width = FAKE_WIDTH;
     config->height = FAKE_HEIGHT;
-    config->format = FAKE_FORMAT;
+    config->format = YCbCr422;
     config->padding = PADDING;
 
     answer = zalloc(sizeof(*answer));
