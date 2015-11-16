@@ -65,29 +65,37 @@
 /* OV5645 I2C address */
 #define OV5645_I2C_ADDR     0x3c
 
-/* OV5645 power request */
-#define OV5645_POWER_ON     1
-#define OV5645_POWER_OFF    0
-
 #define OV5645_APB3_I2C0    0
 
-#define SET                 0
-#define UNSET               1
+/*************************************************
+ * The difinitions of the NOT_SUPPORT and
+ * SUPPORT were used by flag in the
+ * function op_set_streams_cfg().
+ *
+ * NOT_SUPPORT means that requested configuration
+ * isn’t supported and has been adjusted.
+ *************************************************/
+#define NOT_SUPPORT         0
+#define SUPPORT             1
+
+#define PADDING             0
 
 #define HI_BYTE             1
 #define LOW_BYTE            0
 #define OV5645_REG_END      0xffff
 #define OV5645_REG_DELAY    0xfffe
-#define FNOOR 5 // Number of streams out of range
 #define ID_SIZE             2
 #define CURRENT_CFG_SIZE    1
 #define MATA_DATA_SIZE      8
+#define CAPB_SIZE           16
+
 #define CAP_SET_SIZE        8
-#define DATA_TYPE           0x08 //check MIPI spec.
-#define VIRTUAL_CHANNEL     0
 #define NUM_STREAM_LIMIT    4
 #define FRAME_NUMBER        6
 #define STREAM              8
+
+#define DATA_TYPE           0x08 //check MIPI spec.
+#define VIRTUAL_CHANNEL     0
 
 /* Image sizes */
 /* VGA */
@@ -109,8 +117,8 @@
 #define SXGA_WIDTH          1280
 #define SXGA_HEIGHT         960
 /* XGA */
-#define XGA_WIDTH          1024
-#define XGA_HEIGHT         768
+#define XGA_WIDTH           1024
+#define XGA_HEIGHT          768
 /* MAX */
 #define MAX_WIDTH           2592
 #define MAX_HEIGHT          1944
@@ -174,10 +182,11 @@ struct sensor_info {
     struct device *dev;
     struct i2c_dev_s *cam_i2c;
     enum ov5645_state state;
-    struct streams_cfg_sup *str_cfg_sup;
+    struct streams_cfg_req *str_cfg_sup;
+    struct streams_cfg_req *str_cfg_req;
     struct streams_cfg_ans *str_cfg_ans;
     struct capture_info *cap_info;
-    struct meta_data_info *mdata_info;
+    struct metadata_info *mdata_info;
     struct pixel_format pix_fmt;
     uint8_t virtual_channel;
     uint8_t data_type;
@@ -829,7 +838,7 @@ struct reg_val_tbl ov5645_setting_30fps_SXGA_1280_960[] = {
     {0x4837, 0x10},
     {0x3503, 0x00},
     {0x4300, 0x32},
-    {0x4202, 0x00},
+    {0x4202, 0x00}, // Need to start stream at this moment ???
 
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
@@ -853,7 +862,7 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .height     = VGA_HEIGHT,
         .img_fmt    = YCbCr422,
         .regs       = ov5645_init_setting_30fps_VGA_640_480,
-    },  
+    },
     /* VGA - 640*480*/
     {
         .mode_enum   = ov5645_mode_VGA_640_480,
@@ -1043,11 +1052,11 @@ static int set_mode(struct reg_val_tbl *vals, struct i2c_dev_s *cam_i2c)
     if (ret){
         return ret;
     }
-    
+
     /* [TODO] Setup virtual channel */
-    
+
     /* [TODO] wait for mipi sensor ready */
-    
+
     /* [TODO] wait for mipi stable */
 
     return ret;
@@ -1152,8 +1161,8 @@ static int op_capabilities(struct device *dev, uint32_t *size,
  * @param capabilities Pointer that will be stored Camera Module capabilities.
  * @return 0 on success, negative errno on error
  */
-int op_get_required_size(struct device *dev, uint8_t operation,
-                             uint32_t *size)
+static int op_get_required_size(struct device *dev, uint8_t operation,
+                             uint16_t *size)
 {
     struct sensor_info *info = NULL;
     int ret = 0;
@@ -1168,6 +1177,7 @@ int op_get_required_size(struct device *dev, uint8_t operation,
         return -EPERM;
     }
 
+#if 0
     switch (operation) {
     case SIZE_CONFIG_SUPPORT:
         *size = N_WIN_SIZES;
@@ -1178,9 +1188,12 @@ int op_get_required_size(struct device *dev, uint8_t operation,
     case SIZE_META_DATA:
         *size = MATA_DATA_SIZE;
         break;
-    default:
+    case SIZE_CAPABILITIES:
+        *size = CAPB_SIZE;
+        break;    default:
         ret = -EINVAL;
     }
+#endif
 
     return ret;
 }
@@ -1192,8 +1205,7 @@ int op_get_required_size(struct device *dev, uint8_t operation,
  * @param config Pointer to structure of streams configuration
  * @return 0 on success, negative errno on error
  */
-int op_get_support_strm_cfg(struct device *dev, uint16_t num_streams,
-                                struct streams_cfg_ans *config)
+static int get_support_mode(struct device *dev, struct streams_cfg_req *sup_modes)
 {
     struct sensor_info *info = NULL;
     uint8_t i;
@@ -1204,24 +1216,17 @@ int op_get_support_strm_cfg(struct device *dev, uint16_t num_streams,
 
     info = device_get_private(dev);
 
-    if (info->state != OV5645_STATE_OPEN) {
-        return -EPERM;
+    /* get supported modes in this driver */
+    for(i = 0; i < N_WIN_SIZES; i++)
+    {
+        sup_modes[i].width = (uint16_t)ov5645_mode_settings[i].width;
+        sup_modes[i].height = (uint16_t)ov5645_mode_settings[i].height;
+        sup_modes[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
+        sup_modes[i].padding = PADDING;
     }
-
     info->virtual_channel = VIRTUAL_CHANNEL;
     info->data_type = DATA_TYPE;
     info->max_size = MAX_WIDTH * MAX_HEIGHT;
-
-    /* return ov5645's support */
-    for(i = 0; i < N_WIN_SIZES; i++)
-    {
-        config[i].width = info->str_cfg_sup[i].width;
-        config[i].height = info->str_cfg_sup[i].height;
-        config[i].format = info->str_cfg_sup[i].format;
-        config[i].virtual_channel = info->virtual_channel;
-        config[i].data_type = info->data_type;
-        config[i].max_size = info->max_size;
-    }
 
     return 0;
 }
@@ -1233,8 +1238,8 @@ int op_get_support_strm_cfg(struct device *dev, uint16_t num_streams,
  * @param config Pointer to structure of streams configuration
  * @return 0 on success, negative errno on error
  */
-int op_set_streams_cfg(struct device *dev, uint16_t num_streams,
-                           uint16_t *flags, struct streams_cfg_sup *config,
+static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
+                           uint16_t *flags, struct streams_cfg_req *config,
                            struct streams_cfg_ans *answer)
 {
     struct sensor_info *info = NULL;
@@ -1252,61 +1257,32 @@ int op_set_streams_cfg(struct device *dev, uint16_t num_streams,
 
     /* Filter out the data from host request */
     for(i=0; i < N_WIN_SIZES; i++) {
-        if(((config[i].width) == (info->str_cfg_sup[i].width)) &&
-            ((config[i].height) == (info->str_cfg_sup[i].height)) &&
-            ((config[i].format) == (info->str_cfg_sup[i].format))) {
+        if(((config->width) == (info->str_cfg_sup[i].width)) &&
+            ((config->height) == (info->str_cfg_sup[i].height)) &&
+            ((config->format) == (info->str_cfg_sup[i].format))) {
 
             answer->width = info->str_cfg_sup[i].width;
             answer->height = info->str_cfg_sup[i].height;
             answer->format = info->str_cfg_sup[i].format;
+
             answer->virtual_channel = info->virtual_channel;
             answer->data_type = info->data_type;
             answer->max_size = info->max_size;
 
             if (!set_mode(ov5645_mode_settings[i].regs, info->cam_i2c)) {
-                *flags = SET;
+                *flags = SUPPORT;
                 break;
             } else {
-                *flags = UNSET;
+                /*
+                * NOT_SUPPORT means that requested configuration isn’t supported
+                * and has been adjusted.
+                */
+                *flags = NOT_SUPPORT;
                 return -EINVAL;
             }
         }
-        *flags = UNSET;
+        *flags = SUPPORT;
     }
-    return 0;
-}
-
-/**
- * @brief Get applied settings of streams configuration from camera channel
- * @param dev Pointer to structure of device data
- * @param flags Flags of configuration
- * @param config Pointer to structure of streams configuration
- * @return 0 on success, negative errno on error
- */
-int op_get_current_strm_cfg(struct device *dev, uint16_t *flags,
-                                 struct streams_cfg_ans *config)
-{
-    struct sensor_info *info = NULL;
-
-    if (!dev || !device_get_private(dev)) {
-        return -EINVAL;
-    }
-
-    info = device_get_private(dev);
-
-    if (info->state != OV5645_STATE_OPEN) {
-        return -EPERM;
-    }
-
-    config->width = info->str_cfg_sup->width;
-    config->height = info->str_cfg_sup->height;
-    config->format = info->str_cfg_sup->format;
-    config->virtual_channel = info->virtual_channel;
-    config->data_type = info->data_type;
-    config->max_size = info->max_size;
-
-    *flags = 0;
-
     return 0;
 }
 
@@ -1316,7 +1292,7 @@ int op_get_current_strm_cfg(struct device *dev, uint16_t *flags,
  * @param capt_info Capture parameters
  * @return 0 on success, negative errno on error
  */
-static int op_start_capture(struct device *dev,
+static int op_capture(struct device *dev,
                                 struct capture_info *capt_info)
 {
     struct sensor_info *info = NULL;
@@ -1350,7 +1326,7 @@ static int op_start_capture(struct device *dev,
  * @param request_id The request id set by capture
  * @return 0 for success, negative errno on error.
  */
-static int op_stop_capture(struct device *dev, uint32_t *request_id)
+static int op_flush(struct device *dev, uint32_t *request_id)
 {
     struct sensor_info *info = NULL;
     int ret = 0;
@@ -1386,7 +1362,7 @@ static int op_stop_capture(struct device *dev, uint32_t *request_id)
  * @return 0 for success, negative errno on error.
  */
 static int op_get_meta_data(struct device *dev,
-                                struct meta_data_info *meta_data)
+                                struct metadata_info *meta_data)
 {
     struct sensor_info *info = NULL;
 
@@ -1420,7 +1396,6 @@ static int ov5645_dev_open(struct device *dev)
     struct sensor_info *info = NULL;
     enum ov5645_pixel_format ov5645_out_fmt = YCbCr422;
     uint8_t id[ID_SIZE] = {0, 0};
-    uint8_t i;
     uint8_t m_data[MATA_DATA_SIZE];
     int ret = 0;
 
@@ -1431,38 +1406,35 @@ static int ov5645_dev_open(struct device *dev)
     info = device_get_private(dev);
 
     info->state = OV5645_STATE_CLOSED;
-    info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_sup));
+
+    /* Get support modes + */
+    info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
         return -ENOMEM;
     }
 
-    /* init mode support */
-    for(i = 0; i < N_WIN_SIZES; i++)
-    {
-        info->str_cfg_sup[i].width = (uint16_t)ov5645_mode_settings[i].width;
-        info->str_cfg_sup[i].height = (uint16_t)ov5645_mode_settings[i].height;
-        info->str_cfg_sup[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
+    ret = get_support_mode(info->dev, info->str_cfg_sup);
+    if (ret) {
+        ret = -ENOMEM;
+        goto err_free_support;
     }
-    info->virtual_channel = VIRTUAL_CHANNEL;
-    info->data_type = DATA_TYPE;
-    info->max_size = MAX_WIDTH * MAX_HEIGHT;
 
-    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct meta_data_info));
+    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct metadata_info));
     if (info->mdata_info == NULL) {
         ret = -ENOMEM;
-        goto err_free_info;
+        goto err_free_support;
     }
 
     /* init meta data */
     info->mdata_info->request_id = req_id;
     info->mdata_info->frame_number = FRAME_NUMBER;
     info->mdata_info->stream = STREAM;
-    info->mdata_info->padding = 0;
+    info->mdata_info->padding = PADDING;
     info->mdata_info->data = m_data;
 
     info->pix_fmt.pixelformat = ov5645_out_fmt;
     info->pix_fmt.width = VGA_WIDTH;
-    info->pix_fmt.height = VGA_HEIGHT;  
+    info->pix_fmt.height = VGA_HEIGHT;
 
 
     //[TODO] Do MIPI CSI-2 initialization...
@@ -1471,7 +1443,8 @@ static int ov5645_dev_open(struct device *dev)
     /* Power on sensor */
     ret = op_power_up(info->dev);
     if (ret) {
-        return ret;
+        ret = -EIO;
+        goto err_free_metadata;
     }
 
     /* initialize I2C */
@@ -1503,7 +1476,8 @@ static int ov5645_dev_open(struct device *dev)
     }
 
     printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
-
+    
+    /* VGA(640*480) is default setting */
     if (set_mode(ov5645_init_setting_30fps_VGA_640_480, info->cam_i2c)) {
         ret = -EINVAL;
         goto err_free_i2c;
@@ -1513,15 +1487,18 @@ static int ov5645_dev_open(struct device *dev)
 
     return ret;
 
-err_power_down:
-    op_power_down(dev);
+/* Error Handle */
 err_free_i2c:
     up_i2cuninitialize(info->cam_i2c);
-err_free_info:
-    free(info->str_cfg_sup);
+err_power_down:
+    op_power_down(dev);
+err_free_metadata:
     free(info->mdata_info);
+err_free_support:
+    free(info->str_cfg_sup);
+
     free(info);
-    info = NULL;    
+    info = NULL;
 
     return ret;
 }
@@ -1607,23 +1584,17 @@ static struct device_camera_type_ops ov5645_type_ops = {
     /** Get required size of various data  */
     .get_required_size = op_get_required_size,
 
-    /** Get camera module supported configure */
-    .get_support_strm_cfg = op_get_support_strm_cfg,
-
     /** Set configures to camera module */
     .set_streams_cfg = op_set_streams_cfg,
 
-    /** Get current configures from camera module */
-    .get_current_strm_cfg = op_get_current_strm_cfg,
-
     /** Start Capture */
-    .start_capture = op_start_capture,
+    .capture = op_capture,
 
     /** stop capture */
-    .stop_capture = op_stop_capture,
+    .flush = op_flush,
 
     /** Meta data request */
-    .get_meta_data = op_get_meta_data,
+    .trans_metadata = op_get_meta_data,
 };
 
 static struct device_driver_ops ov5645_driver_ops = {

@@ -38,7 +38,7 @@
 #define GB_CAMERA_TYPE_CONFIGURE_STREAMS        0x03
 #define GB_CAMERA_TYPE_CAPTURE                  0x04
 #define GB_CAMERA_TYPE_FLUSH                    0x05
-#define GB_CAMERA_TYPE_META_DATA                0x06
+#define GB_CAMERA_TYPE_METADATA                 0x06
 
 /* Capabilities flags */
 #define GB_CAP_METADATA_GREYBUS     BIT(0)
@@ -46,8 +46,8 @@
 #define GB_CAP_STILL_IMAGE          BIT(2)
 #define GB_CAP_JPEG                 BIT(3)
 
-/* Maximum Capabilities */
-#define GB_CAP_MAX_DATA_SIZE        4
+/* Stream configuratoin */
+#define MAX_STREAMS_NUM             4
 
 /**
  * Stream configuration for Request
@@ -168,22 +168,6 @@ struct gb_camera_flush_response {
  * Camera Protocol Meta Data Request
  */
 struct gb_camera_meta_data_request {
-    /** The ID of the corresponding capture request */
-    __le32  request_id;
-    /** CSI-2 frame number */
-    __le16  frame_number;
-    /** The stream number */
-    __u8    stream;
-    /** Must be set to zero */
-    __u8    padding;
-    /** Meta-data block */
-    __u8    data[0];
-} __packed;
-
-/**
- * Camera Protocol Meta Data Response
- */
-struct gb_camera_meta_data_response {
     /** The ID of the corresponding capture request */
     __le32  request_id;
     /** CSI-2 frame number */
