@@ -45,7 +45,34 @@
 #define FAKE_STREAM       8
 #define REQUEST_SIZE_FAIL 0
 
-enum ov5645_pixel_format {
+/* Image sizes */
+/* VGA */
+#define VGA_WIDTH           640
+#define VGA_HEIGHT          480
+/* QVGA */
+#define QVGA_WIDTH          320
+#define QVGA_HEIGHT         240
+/* 720P */
+#define _720P_WIDTH         1280
+#define _720P_HEIGHT        720
+/* 1080P */
+#define _1080P_WIDTH        1920
+#define _1080P_HEIGHT       1080
+/* QSXGA */
+#define QSXGA_WIDTH         2592
+#define QSXGA_HEIGHT        1944
+/* SXGA */
+#define SXGA_WIDTH          1280
+#define SXGA_HEIGHT         960
+/* XGA */
+#define XGA_WIDTH           1024
+#define XGA_HEIGHT          768
+/* MAX */
+
+#define MODE_MIN          0
+#define MODE_MAX          7
+
+enum cam_pixel_format {
     _8bit_RGB_RAW,
     _10bit_RGB_RAW,
     RGB565,
@@ -57,9 +84,16 @@ enum ov5645_pixel_format {
     format_max = 0xff,
 };
 
+struct image_size {
+    /** Image width in pixels */
+    uint16_t    width;
+    /** Image height in pixels */
+    uint16_t    height;
+};
+
 uint32_t num_of_support_mode;
 
-static int show_capabilities(struct device *dev)
+static int get_capabilities(struct device *dev)
 {
     int result = 0;
     uint8_t capabilities = 0;
@@ -72,16 +106,16 @@ static int show_capabilities(struct device *dev)
         printf("size: %d\n", size);
         printf("\n");
     } else {
-        printf("ERROR! ov5645_capabilities failed: %d\n", result);
+        printf("ERROR! get_capabilities failed: %d\n", result);
     }
 
     return result;
 }
 
-static int show_get_required_size(struct device *dev, uint8_t operation)
+static int test_get_required_size(struct device *dev, uint8_t operation)
 {
     int result = 0;
-    uint32_t size = 0;
+    uint16_t size = 0;
 
     result = device_camera_get_required_size(dev, operation, &size);
      if(!result) {
@@ -90,59 +124,18 @@ static int show_get_required_size(struct device *dev, uint8_t operation)
         printf("=== show required size ===\n");
         printf("support type: %d,size: %d\n", operation, size);
     } else {
-        printf("ERROR! ov5645_get_required_size failed: %d\n", result);
+        printf("ERROR! test_get_required_size failed: %d\n", result);
         num_of_support_mode = REQUEST_SIZE_FAIL;
     }
 
     return result;
 }
 
-static int show_get_support_strm_cfg(struct device *dev, uint8_t operation)
-{
-    int result = 0, i;
-    uint16_t num_streams = 0;
-    struct streams_cfg_ans *config;
-
-    /* Get requirement size */
-    show_get_required_size(dev, operation);
-    if (!num_of_support_mode)
-        return -EINVAL;
-
-    config = zalloc(num_of_support_mode * sizeof(struct streams_cfg_ans));
-    if (!config) {
-        printf("ERROR! Fail to alloc memory. \n");
-        return -ENOMEM;
-    }
-
-    /* get support stream config */
-    result = device_camera_get_support_strm_cfg(dev, num_streams, config);
-    if(!result) {
-        printf("=== show support stream config ===\n");
-        printf("The number of support modes: %d\n", num_of_support_mode);
-
-        /* print all of ov5645 modes */
-        for(i=0; i<num_of_support_mode; i++) {
-           printf("--- mode%d ---\n", i);
-           printf("width           : %d\n", config[i].width);
-           printf("height          : %d\n", config[i].height);
-           printf("format          : 0x%x\n", config[i].format);
-           printf("virtual_channel : %d\n", config[i].virtual_channel);
-           printf("data_type       : %d\n", config[i].data_type);
-           printf("max_size        : %d\n", config[i].max_size);
-           printf("\n");
-        }
-    } else
-        printf("ERROR! ov5645_get_support_strm_cfg failed: %d\n", result);
-
-    free(config);
-    return result;
-}
-
-static int show_set_streams_cfg(struct device *dev)
+static int set_streams_cfg(struct device *dev, struct image_size img_size)
 {
     int result = 0;
     uint16_t num_streams = 0, flags = 0;
-    struct streams_cfg_sup *config = NULL;
+    struct streams_cfg_req *config = NULL;
     struct streams_cfg_ans *answer = NULL;
 
     config = zalloc(sizeof(*config));
@@ -151,8 +144,11 @@ static int show_set_streams_cfg(struct device *dev)
         return -ENOMEM;
     }
 
-    config->width = FAKE_WIDTH;
-    config->height = FAKE_HEIGHT;
+    printf("[%s]img_size.width = %d \n", __func__, img_size.width);
+    printf("[%s]img_size.height = %d \n", __func__, img_size.height);
+
+    config->width = img_size.width;
+    config->height = img_size.height;
     config->format = YCbCr422;
     config->padding = PADDING;
 
@@ -163,7 +159,7 @@ static int show_set_streams_cfg(struct device *dev)
         goto err_free_config;
     }
 
-    result = device_camera_set_streams_cfg(dev, num_streams, &flags, config,
+    result = device_camera_set_streams_cfg(dev, &num_streams, &flags, config,
                                            answer);
     if(!result) {
         printf("=== show streams config ===\n");
@@ -176,7 +172,7 @@ static int show_set_streams_cfg(struct device *dev)
         printf("flags           : %d\n",   flags);
         printf("\n");
     } else {
-        printf("ERROR! ov5645_get_support_strm_cfg failed: %d\n", result);
+        printf("ERROR! set_streams_cfg failed: %d\n", result);
    }
 
     free(answer);
@@ -187,44 +183,7 @@ err_free_config:
     return result;
 }
 
-static int show_get_current_strm_cfg(struct device *dev, uint8_t operation)
-{
-    int result = 0;
-    uint16_t flags = 0;
-    struct streams_cfg_ans *answer = NULL;
-
-    /* Get requirement size */
-    show_get_required_size(dev, operation);
-    if (!num_of_support_mode)
-        return -EINVAL;
-
-    answer = zalloc(sizeof(*answer));
-    if (!answer) {
-        printf("ERROR! Fail to alloc memory. \n");
-        return -ENOMEM;
-    }
-
-    result = device_camera_get_current_strm_cfg(dev, &flags, answer);
-    if(!result) {
-        printf("=== show current streams config ===\n");
-        printf("width           : %d\n",   answer->width);
-        printf("height          : %d\n",   answer->height);
-        printf("format          : 0x%x\n", answer->format);
-        printf("virtual_channel : %d\n",   answer->virtual_channel);
-        printf("data_type       : %d\n",   answer->data_type);
-        printf("max_size        : %d\n",   answer->max_size);
-        printf("flags           : %d\n",   flags);
-        printf("\n");
-    } else {
-        printf("ERROR! show_get_current_strm_cfg failed: %d\n", result);
-    }
-
-    free(answer);
-
-    return result;
-}
-
-static int show_start_capture(struct device *dev)
+static int capture(struct device *dev)
 {
     int result = 0;
     uint8_t cap_setting[FAKE_SET_SIZE] = {0};
@@ -242,12 +201,13 @@ static int show_start_capture(struct device *dev)
     capt_info->num_frames =  FAKE_NUM_FRAMES;
     capt_info->settings   =  cap_setting;
 
-    result = device_camera_start_capture(dev, capt_info);
+    result = device_camera_capture(dev, capt_info);
     if(!result) {
         printf("=== Start capture ===\n");
+        printf("Check if preview is working.\n");
         printf("\n");
     } else {
-        printf("ERROR! show_start_capture failed: %d\n", result);
+        printf("ERROR! apture failed: %d\n", result);
     }
 
     free(capt_info);
@@ -255,41 +215,42 @@ static int show_start_capture(struct device *dev)
     return result;
 }
 
-static int show_stop_capture(struct device *dev)
+static int flush(struct device *dev)
 {
     int result = 0;
     uint32_t request_id = 0;
 
-    result = device_camera_stop_capture(dev, &request_id);
+    result = device_camera_flush(dev, &request_id);
     if(!result) {
         printf("=== Stop_capture ===\n");
         printf("request_id: %d\n",request_id);
+        printf("Check if preview is terminated.\n");
         printf("\n");
     } else {
-        printf("ERROR! show_stop_capture failed: %d\n", result);
+        printf("ERROR! flush failed: %d\n", result);
     }
 
     return result;
 }
 
-static int show_get_meta_data(struct device *dev, uint8_t operation)
+static int metadata_transmit(struct device *dev, uint8_t operation)
 {
     int result = 0;
-    struct meta_data_info *meta_data;
+    struct metadata_info *meta_data;
 
     /* Get requirement size */
-    show_get_required_size(dev, operation);
+    test_get_required_size(dev, operation);
     if (!num_of_support_mode)
         return -EINVAL;
 
-    meta_data = zalloc(num_of_support_mode * sizeof(struct meta_data_info));
+    meta_data = zalloc(num_of_support_mode * sizeof(struct metadata_info));
     if (!meta_data) {
         printf("ERROR! Fail to alloc memory. \n");
         return -ENOMEM;
     }
 
     /* obtain meta data */
-    result = device_camera_get_meta_data(dev, meta_data);
+    result = device_camera_trans_metadata(dev, meta_data);
     if(!result) {
         printf("=== Show meta data ===\n");
 
@@ -301,23 +262,21 @@ static int show_get_meta_data(struct device *dev, uint8_t operation)
         printf("data         : 0x%x\n", meta_data->data);
         printf("\n");
     } else
-       printf("ERROR! ov5645_get_support_strm_cfg failed: %d\n", result);
+       printf("ERROR! show_get_meta_data failed: %d\n", result);
 
     free(meta_data);
     return result;
 }
 
 static void print_usage(void) {
-    printf("Usage: camera_test\n");
-    printf("Parameters < c | s | t | p | u | r | m | e > \n");
+    printf("Usage: camera_test < c | s | t | p | m | e >\n");
+    printf("camera operation tests:\n");
     printf("          c : Get camera capabilities\n");
-    printf("          s : Set streams config\n");
-    printf("          t : Start stream\n");
-    printf("          p : Stop stream\n");
-    printf("          u : Get support stream config\n");
-    printf("          r : Get current stream config\n");
-    printf("          m : Meta data request\n");
-    printf("          e : Exit test application\n");
+    printf("          s : Set streams configuration\n");
+    printf("          t : Start to capture\n");
+    printf("          p : Stop to capture\n");
+    printf("          m : Meta-Data requests\n");
+    printf("          e : Exit camera test application\n"); 
     printf("\n");
 }
 
@@ -327,8 +286,10 @@ int main(int argc, FAR char *argv[]) {
 int camera_test_main(int argc, char *argv[]) {
 #endif
     struct device *dev = NULL;
+    struct image_size img_size;
+
     char cmd = '\0';
-    int ret = 0;
+    int ret = 0, val = 0;
 
     printf("Power on camera sensor and get sendor ID... \n");
 
@@ -345,38 +306,85 @@ int camera_test_main(int argc, char *argv[]) {
     {
         switch (cmd) {
         case 'c':
-            /** Camera capabilities */
-            ret = show_capabilities(dev);
-            break;
-        case 'u':
-            /** Get camera module supported configure */
-            ret = show_get_support_strm_cfg(dev, SIZE_CONFIG_SUPPORT);
+            /** Get Camera capabilities */
+            ret = get_capabilities(dev);
             break;
         case 's':
+            printf("1.VGA   - 640*480 \n");
+            printf("2.QVGA  - 320*240 \n");
+            printf("3.720P  - 1280*720 \n");
+            printf("4.1080P - 1920*1080 \n");
+            printf("5.QSXGA - 2592*1944 \n");
+            printf("6.SXGA  - 1280*960 \n");
+            printf("7.XGA   - 1024*768 \n");
+
+            /* Check if input value is out of range */
+            while((cmd = getchar()))
+            {
+                val = atoi(&cmd);
+                if ((val > MODE_MIN) || (val < (MODE_MAX+1))) {
+                  break;
+                }
+                else {
+                  /* Out of range value */
+                  printf("No Such Mode! \n");
+                }
+            }
+
+            switch (cmd) {
+            case '1':
+                img_size.width   = VGA_WIDTH;
+                img_size.height  = VGA_HEIGHT;
+               break;
+            case '2':
+                img_size.width   = QVGA_WIDTH;
+                img_size.height  = QVGA_HEIGHT;
+               break;
+            case '3':
+                img_size.width   = _720P_WIDTH;
+                img_size.height  = _720P_HEIGHT;
+               break;
+            case '4':
+                img_size.width   = _1080P_WIDTH;
+                img_size.height  = _1080P_HEIGHT;
+               break;
+            case '5':
+                img_size.width   = QSXGA_WIDTH;
+                img_size.height  = QSXGA_HEIGHT;
+               break;
+            case '6':
+                img_size.width   = SXGA_WIDTH;
+                img_size.height  = SXGA_HEIGHT;
+               break;
+            case '7':
+                img_size.width   = XGA_WIDTH;
+                img_size.height  = XGA_HEIGHT;
+               break;
+            default:
+                img_size.width   = VGA_WIDTH;
+                img_size.height  = VGA_HEIGHT;
+            }
+
             /** Set configures to camera module */
-            ret = show_set_streams_cfg(dev);
+            ret = set_streams_cfg(dev, img_size);
             break;
-        case 'r':
-            /** Get current configures from camera module */
-            ret = show_get_current_strm_cfg(dev, SIZE_CONFIG_ANSWER);
-           break;
         case 't':
             /** Start Capture */
-            ret = show_start_capture(dev);
+            ret = capture(dev);
            break;
         case 'p':
             /** Stop Capture */
-            ret = show_stop_capture(dev);
+            ret = flush(dev);
            break;
         case 'm':
             /** Get camera module supported configure */
-            ret = show_get_meta_data(dev, SIZE_META_DATA);
+            ret = metadata_transmit(dev, SIZE_CAPABILITIES);
            break;
         default:
             print_usage();
-            return EXIT_FAILURE;
         }
     }
+
     device_close(dev);
     dev = NULL;
 

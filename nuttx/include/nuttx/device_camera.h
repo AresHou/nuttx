@@ -50,19 +50,12 @@
 /**
  * Query required data size to report
  */
-#define SIZE_CONFIG_SUPPORT     0
-#define SIZE_CONFIG_ANSWER      1
-#define SIZE_META_DATA          2
+#define SIZE_CAPABILITIES       0
 
 /**
- * @brief Capture finish callback function
+ *  Request of Stream Configuration
  */
-typedef void (*capture_callback)(void);
-
-/**
- *  Supported Stream Configuration
- */
-struct streams_cfg_sup {
+struct streams_cfg_req {
     /** Image width in pixels */
     uint16_t    width;
     /** Image height in pixels */
@@ -105,14 +98,12 @@ struct capture_info {
     uint16_t    num_frames;
     /** Capture  request settings */
     uint8_t     *settings;
-    /** callback function for capture finish */
-    capture_callback callback;
 };
 
 /**
  *  Parameters for Getting Meta Data
  */
-struct meta_data_info {
+struct metadata_info {
     /** The ID of the corresponding capture request */
     uint32_t    request_id;
     /** CSI-2 frame number */
@@ -138,24 +129,18 @@ struct device_camera_type_ops {
                         uint8_t *capabilities);
     /** Get required size of various data  */
     int (*get_required_size)(struct device *dev, uint8_t operation,
-                             uint32_t *size);
-    /** Get camera module supported configure */
-    int (*get_support_strm_cfg)(struct device *dev, uint16_t num_streams,
-                                struct streams_cfg_ans *config);
+                             uint16_t *size);
     /** Set configures to camera module */
-    int (*set_streams_cfg)(struct device *dev, uint16_t num_streams,
+    int (*set_streams_cfg)(struct device *dev, uint16_t *num_streams,
                            uint16_t *flags,
-                           struct streams_cfg_sup *config,
+                           struct streams_cfg_req *config,
                            struct streams_cfg_ans *answer);
-    /** Get current configures from camera module */
-    int (*get_current_strm_cfg)(struct device *dev, uint16_t *flags,
-                                struct streams_cfg_ans *config);
     /** Start Capture */
-    int (*start_capture)(struct device *dev, struct capture_info *capt_info);
+    int (*capture)(struct device *dev, struct capture_info *capt_info);
     /** stop capture */
-    int (*stop_capture)(struct device *dev, uint32_t *request_id);
+    int (*flush)(struct device *dev, uint32_t *request_id);
     /** Meta data request */
-    int (*get_meta_data)(struct device *dev, struct meta_data_info *meta_data);
+    int (*trans_metadata)(struct device *dev, struct metadata_info *meta_data);
 };
 
 /**
@@ -228,7 +213,7 @@ static inline int device_camera_capabilities(struct device *dev, uint16_t *size,
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_get_required_size(struct device *dev,
-                                              uint8_t operation, uint32_t *size)
+                                              uint8_t operation, uint16_t *size)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
@@ -243,40 +228,18 @@ static inline int device_camera_get_required_size(struct device *dev,
 }
 
 /**
- * @brief Get camera module support stream cofigurations
- *
- * @param dev Pointer to structure of device data
- * @param num_streams Number of streams
- * @param config Pointer to structure of streams configuration
- * @return 0 on success, negative errno on error
- */
-static inline int device_camera_get_support_strm_cfg(struct device *dev,
-                           uint16_t num_streams, struct streams_cfg_ans *config)
-{
-    DEVICE_DRIVER_ASSERT_OPS(dev);
-
-    if (!device_is_open(dev)) {
-        return -ENODEV;
-    }
-    if (DEVICE_DRIVER_GET_OPS(dev, camera)->get_support_strm_cfg) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->get_support_strm_cfg(dev,
-                                                           num_streams, config);
-    }
-    return -ENOSYS;
-}
-
-/**
  * @brief Set streams configuration to camera module
  *
  * @param dev Pointer to structure of device data
- * @param num_streams Number of streams
+ * @param num_streams Pointer to number of streams
  * @param config Pointer to structure of streams configuration
+ * @param answer Pointer to structure of camera answer information
  * @return 0 on success, negative errno on error
  */
 static inline int device_camera_set_streams_cfg(struct device *dev,
-                           uint16_t num_streams, uint16_t *flags,
-                           struct streams_cfg_sup *config,
-                           struct streams_cfg_ans *answer)
+                                         uint16_t *num_streams, uint16_t *flags,
+                                         struct streams_cfg_req *config,
+                                         struct streams_cfg_ans *answer)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
@@ -291,90 +254,64 @@ static inline int device_camera_set_streams_cfg(struct device *dev,
 }
 
 /**
- * @brief Get applied settings of streams configuration from camera channel
- *
- * @param dev Pointer to structure of device data
- * @param flags Flags of configuration
- * @param config Pointer to structure of streams configuration
- * @return 0 on success, negative errno on error
- */
-static inline int device_camera_get_current_strm_cfg(struct device *dev,
-                                uint16_t *flags, struct streams_cfg_ans *config)
-{
-    DEVICE_DRIVER_ASSERT_OPS(dev);
-
-    if (!device_is_open(dev)) {
-        return -ENODEV;
-    }
-    if (DEVICE_DRIVER_GET_OPS(dev, camera)->get_current_strm_cfg) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->get_current_strm_cfg(dev,
-                                                                 flags, config);
-    }
-    return -ENOSYS;
-}
-
-/**
  * @brief Start the camera capture
  *
  * @param dev Pointer to structure of device data
  * @param capt_info Capture parameters
  * @return 0 on success, negative errno on error
  */
-static inline int device_camera_start_capture(struct device *dev,
-                                              struct capture_info *capt_info)
+static inline int device_camera_capture(struct device *dev,
+                                        struct capture_info *capt_info)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
     if (!device_is_open(dev)) {
         return -ENODEV;
     }
-    if (DEVICE_DRIVER_GET_OPS(dev, camera)->start_capture) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->start_capture(dev,
-                                                                 capt_info);
+    if (DEVICE_DRIVER_GET_OPS(dev, camera)->capture) {
+        return DEVICE_DRIVER_GET_OPS(dev, camera)->capture(dev, capt_info);
     }
     return -ENOSYS;
 }
 
 /**
- * @brief Stop the camera capture
+ * @brief flush the camera capture
  *
  * @param dev Pointer to structure of device data
  * @param request_id The request id set by capture
  * @return 0 on success, negative errno on error
  */
-static inline int device_camera_stop_capture(struct device *dev,
-                                             uint32_t *request_id)
+static inline int device_camera_flush(struct device *dev, uint32_t *request_id)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
     if (!device_is_open(dev)) {
         return -ENODEV;
     }
-    if (DEVICE_DRIVER_GET_OPS(dev, camera)->stop_capture) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->stop_capture(dev,
-                                                                request_id);
+    if (DEVICE_DRIVER_GET_OPS(dev, camera)->flush) {
+        return DEVICE_DRIVER_GET_OPS(dev, camera)->flush(dev, request_id);
     }
     return -ENOSYS;
 }
 
 /**
- * @brief Get meta_data from camera module
+ * @brief Transmit metadata from camera module
  *
  * @param dev Pointer to structure of device data
  * @param meta_data Pointer to Meta-data block
  * @return 0 on success, negative errno on error
  */
-static inline int device_camera_get_meta_data(struct device *dev,
-                                              struct meta_data_info *meta_data)
+static inline int device_camera_trans_metadata(struct device *dev,
+                                               struct metadata_info *meta_data)
 {
     DEVICE_DRIVER_ASSERT_OPS(dev);
 
     if (!device_is_open(dev)) {
         return -ENODEV;
     }
-    if (DEVICE_DRIVER_GET_OPS(dev, camera)->get_meta_data) {
-        return DEVICE_DRIVER_GET_OPS(dev, camera)->get_meta_data(dev,
-                                                                 meta_data);
+    if (DEVICE_DRIVER_GET_OPS(dev, camera)->trans_metadata) {
+        return DEVICE_DRIVER_GET_OPS(dev, camera)->trans_metadata(dev,
+                                                                  meta_data);
     }
     return -ENOSYS;
 }
