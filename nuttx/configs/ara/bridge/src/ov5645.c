@@ -1177,23 +1177,13 @@ static int op_get_required_size(struct device *dev, uint8_t operation,
         return -EPERM;
     }
 
-#if 0
     switch (operation) {
-    case SIZE_CONFIG_SUPPORT:
-        *size = N_WIN_SIZES;
-        break;
-    case SIZE_CONFIG_ANSWER:
-        *size = CURRENT_CFG_SIZE;
-        break;
-    case SIZE_META_DATA:
-        *size = MATA_DATA_SIZE;
-        break;
     case SIZE_CAPABILITIES:
-        *size = CAPB_SIZE;
-        break;    default:
+         *size = CAPB_SIZE;
+       break;    
+    default:
         ret = -EINVAL;
     }
-#endif
 
     return ret;
 }
@@ -1205,7 +1195,8 @@ static int op_get_required_size(struct device *dev, uint8_t operation,
  * @param config Pointer to structure of streams configuration
  * @return 0 on success, negative errno on error
  */
-static int get_support_mode(struct device *dev, struct streams_cfg_req *sup_modes)
+static int get_support_mode(struct device *dev, 
+                            struct streams_cfg_req *sup_modes)
 {
     struct sensor_info *info = NULL;
     uint8_t i;
@@ -1292,8 +1283,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
  * @param capt_info Capture parameters
  * @return 0 on success, negative errno on error
  */
-static int op_capture(struct device *dev,
-                                struct capture_info *capt_info)
+static int op_capture(struct device *dev, struct capture_info *capt_info)
 {
     struct sensor_info *info = NULL;
     int ret = 0;
@@ -1361,8 +1351,7 @@ static int op_flush(struct device *dev, uint32_t *request_id)
  * @param meta_data Pointer to Meta-data block
  * @return 0 for success, negative errno on error.
  */
-static int op_get_meta_data(struct device *dev,
-                                struct metadata_info *meta_data)
+static int op_get_meta_data(struct device *dev, struct metadata_info *meta_data)
 {
     struct sensor_info *info = NULL;
 
@@ -1439,6 +1428,7 @@ static int ov5645_dev_open(struct device *dev)
 
     //[TODO] Do MIPI CSI-2 initialization...
     // Should we call ov5645_csi_init() located at csi_rx_init.c?
+    
 
     /* Power on sensor */
     ret = op_power_up(info->dev);
