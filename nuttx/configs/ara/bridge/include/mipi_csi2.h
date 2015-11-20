@@ -1,39 +1,7 @@
-/**
- * Copyright (c) 2015 Google Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its
- * contributors may be used to endorse or promote products derived from this
- * software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * @brief OV5645 Camera Sensor Driver
- */
+#ifndef _MIPI_CSI2_H_
+#define _MIPI_CSI2_H_
 
-#ifndef _OV5645_H_
-#define _OV5645_H_
-
-#include <stdint.h>
-
-int ov5645_init(int mode);
+#include <arch/tsb/cdsi.h>
 
 /* CDSI deifne */
 #define CDSI0 0
@@ -41,6 +9,11 @@ int ov5645_init(int mode);
 #define CDSI_RX 0
 #define CDSI_TX 1
 
+#define STOPSTATE 0x00
+#define INTERNAL_STAT_BUSY 0x01
+
+
+/* CSI-2 register values */
 #define AL_RX_BRG_MODE_VAL                              0x00000003
 #define AL_RX_BRG_CSI_INFO_VAL                          0x00000000
 #define AL_RX_BRG_CSI_DT0_VAL                           0x00000000
@@ -102,6 +75,36 @@ int ov5645_init(int mode);
 #define CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL            0x00000001
 #define CDSI0_CDSIRX_ADDRESS_CONFIG_VAL                 0x00000000
 
+#define CDSI0_CDSIRX_START_VAL                          0x00000001
+#define CDSI0_CDSIRX_SYSTEM_INIT_VAL                    0x10000010
+#define CDSI0_CDSIRX_CLKEN_VAL                          0x10000010
 
-#endif  /* _OV5645_H_ */
+/* mipi data type */
+#define MIPI_DT_YUV420_8bit        0x18
+#define MIPI_DT_YUV420_10bit       0x19
+#define MIPI_DT_YUV420_LEGACY_8bit 0x1a
+#define MIPI_DT_YUV422_8bit        0x1e
+#define MIPI_DT_YUV422_10bit       0x1f
+#define MIPI_DT_RGB444             0x20
+#define MIPI_DT_RGB555             0x21
+#define MIPI_DT_RGB565             0x22
+#define MIPI_DT_RGB666             0x23
+#define MIPI_DT_RGB888             0x24
+#define MIPI_DT_RAW6               0x28
+#define MIPI_DT_RAW7               0x29
+#define MIPI_DT_RAW8               0x2a
+#define MIPI_DT_RAW10              0x2b
+#define MIPI_DT_RAW12              0x2c
+#define MIPI_DT_RAW14              0x2d
 
+/* mipi csi2 API */
+int mipi_csi2_stop(struct cdsi_dev *cdsidev);
+int mipi_csi2_start(struct cdsi_dev *cdsidev);
+uint8_t mipi_csi2_get_datatype(struct cdsi_dev *cdsidev);
+int mipi_csi2_set_datatype(struct cdsi_dev *cdsidev, uint8_t data_type);
+uint8_t mipi_csi2_get_virtual_channel(struct cdsi_dev *cdsidev);
+int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t);
+int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn);
+int mipi_csi2_get_error(struct cdsi_dev *cdsidev);
+
+#endif  /* _MIPI_CSI2_H_ */

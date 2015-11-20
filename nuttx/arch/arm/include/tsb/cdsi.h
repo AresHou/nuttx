@@ -39,6 +39,9 @@ struct cdsi_dev
 {
     uint32_t base;
     int tx;
+    uint8_t    v_channel;
+    uint8_t    lanes;
+    uint8_t    datatype;
 };
 
 struct display_panel
@@ -61,6 +64,10 @@ void dsi_uninitialize(struct cdsi_dev *dev);
 
 struct cdsi_dev *csi_initialize(struct camera_sensor *sensor, int dsi, int tx);
 void csi_uninitialize(struct cdsi_dev *dev);
+
+#if 1
+struct cdsi_dev *init_csi(int cdsi, int tx);
+#endif
 
 #endif
 

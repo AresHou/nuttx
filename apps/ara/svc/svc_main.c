@@ -1060,6 +1060,7 @@ static int test_feature(int argc, char* argv[]) {
                    dst_cport, rc);
             return rc;
         }
+#if 0 //bsq removes for enabling camera +
         /* Actually enable the test traffic. */
         rc = switch_enable_test_traffic(sw,
                                         src_iface->switch_portid,
@@ -1079,6 +1080,7 @@ static int test_feature(int argc, char* argv[]) {
                    __func__, rc);
             return rc;
         }
+#endif //bsq removes for enabling camera -
     }
 
     return 0;
