@@ -45,7 +45,7 @@ ifeq ($(CONFIG_APB_AP),y)
 CSRCS   += csi_tx_init.c
 CSRCS   += dsi_rx_init.c
 else ifeq ($(CONFIG_APB_CAMERA),y)
-CSRCS   += csi_rx_init.c ov5645.c
+CSRCS   += csi_rx_init.c ov5645.c mipi_csi2.c
 else ifeq ($(CONFIG_APB_DISPLAY),y)
 CSRCS   += lg4892.c
 CSRCS   += dsi_tx_init.c

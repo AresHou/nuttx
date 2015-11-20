@@ -42,6 +42,9 @@
 #include <nuttx/gpio.h>
 #include <nuttx/i2c.h>
 #include <nuttx/util.h>
+#include <arch/board/cdsi0_offs_def.h>
+#include <arch/board/cdsi0_reg_def.h>
+#include <arch/board/mipi_csi2.h>
 
 /* OV5645 ID registers */
 #define OV5645_ID_HIGH      0x300a
@@ -54,6 +57,7 @@
 #define R_SHIFT_BIT         8
 
 /* Delay Time */
+#define DELAY_10            10
 #define DELAY_50            50
 #define DELAY_5000          5000
 #define DELAY_1000          1000
@@ -137,18 +141,6 @@ enum ov5645_mode_enum {
     ov5645_mode_INIT = 0xff, /*only for sensor init*/
 };
 
-#if 0
-enum ov5645_downsize_mode {
-    SUBSAMPLING,
-    SCALING,
-};
-
-enum ov5645_frame_rate {
-    _15_fps,
-    _30_fps
-};
-#endif
-
 /**
  * @brief camera device state
  */
@@ -188,9 +180,8 @@ struct sensor_info {
     struct capture_info *cap_info;
     struct metadata_info *mdata_info;
     struct pixel_format pix_fmt;
-    uint8_t virtual_channel;
-    uint8_t data_type;
-    uint32_t max_size;
+    struct cdsi_dev *cdsidev;
+    uint8_t current_mode;
 };
 
 static uint8_t req_id;
@@ -204,9 +195,9 @@ struct reg_val_tbl {
 };
 
 /**
- * @brief ov5645 sensor init registers for VAG
+ * @brief ov5645 sensor init registers for SXGA
  */
-struct reg_val_tbl ov5645_init_setting_30fps_VGA_640_480[] = {
+struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     /* VGA 640 480 */
     /* YCbCr initial setting */
     /* initial setting, Sysclk = 56Mhz, MIPI 2 lane 224MBps */
@@ -795,6 +786,66 @@ struct reg_val_tbl ov5645_setting_30fps_XGA_1024_768[] = {
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
 
+#if 1
+/* preview moide size: 1280*960. Below table is form ov5645 sample code */
+struct reg_val_tbl ov5645_setting_30fps_SXGA_1280_960[] = {
+        // Sysclk = 56Mhz, MIPI 2 lane 224MBps
+        //0x3612, 0xa9,
+        {0x3618, 0x00},
+        {0x3035, 0x21}, // PLL
+        {0x3036, 0x70}, // PLL
+        {0x3600, 0x09},
+        {0x3601, 0x43},
+        {0x3708, 0x66},
+        {0x370c, 0xc3},
+        {0x3803, 0x06}, // VS L
+        {0x3806, 0x07}, // VH = 1949
+        {0x3807, 0x9d}, // VH
+        {0x3808, 0x05}, // DVPHO = 1280
+        {0x3809, 0x00}, // DVPHO
+        {0x380a, 0x03}, // DVPVO = 960
+        {0x380b, 0xc0}, // DVPVO
+        {0x380c, 0x07}, // HTS = 1896
+        {0x380d, 0x68}, // HTS
+        {0x380e, 0x03}, // VTS = 984
+        {0x380f, 0xd8}, // VTS
+        {0x3814, 0x31}, // X INC
+        {0x3815, 0x31}, // Y INC
+        #ifdef OV5645_mirror
+        #ifdef OV5645_flip
+        {0x3820, 0x47}, // flip on, V bin on
+        {0x3821, 0x07}, // mirror on, H bin on
+        #else
+        {0x3820, 0x41}, // flip off, V bin on
+        {0x3821, 0x07}, // mirror on, H bin on
+        #endif
+        #else
+        #ifdef OV5645_flip
+        {0x3820, 0x47}, // flip on, V bin on
+        {0x3821, 0x01}, // mirror off, H bin on
+        #else
+        {0x3820, 0x41}, // flip off, V bin on
+        {0x3821, 0x01}, // mirror off, H bin on
+        #endif
+        #endif
+        {0x3a02, 0x07}, // night mode ceiling = 8/120
+        {0x3a03, 0xb0}, // night mode ceiling
+        {0x3a08, 0x01}, // B50
+        {0x3a09, 0x27}, // B50
+        {0x3a0a, 0x00}, // B60
+        {0x3a0b, 0xf6}, // B60
+        {0x3a0e, 0x03}, // max 50
+        {0x3a0d, 0x04}, // max 60
+        {0x3a14, 0x08}, // 50Hz max exposure = 7/100
+        {0x3a15, 0x11}, // 50Hz max exposure
+        {0x3a18, 0x01}, // max gain = 31.5x
+        {0x3a19, 0xf8}, // max gain
+        {0x4004, 0x02}, // BLC line number
+        {0x4005, 0x18}, // BLC update by gain change
+        {0x4837, 0x10}, // MIPI global timing
+        {0x3503, 0x00}, // AGC/AEC on
+};
+#else
 /**
  * @brief ov5645 sensor registers for 30fps SXGA
  */
@@ -842,6 +893,7 @@ struct reg_val_tbl ov5645_setting_30fps_SXGA_1280_960[] = {
 
     {OV5645_REG_END, 0x00}, /* END MARKER */
 };
+#endif
 
 /**
  * @brief ov5645 sensor mode
@@ -861,7 +913,7 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .width      = VGA_WIDTH,
         .height     = VGA_HEIGHT,
         .img_fmt    = YCbCr422,
-        .regs       = ov5645_init_setting_30fps_VGA_640_480,
+        .regs       = ov5645_init_setting_SXGA_1280_960,
     },
     /* VGA - 640*480*/
     {
@@ -877,7 +929,7 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
         .width      = QVGA_WIDTH,
         .height     = QVGA_HEIGHT,
         .img_fmt    = YCbCr422,
-        .regs       = ov5645_init_setting_30fps_VGA_640_480,
+        .regs       = ov5645_init_setting_SXGA_1280_960,
     },
     /* 720p - 1280*720 */
     {
@@ -1023,7 +1075,8 @@ static int data_write_array(struct i2c_dev_s *dev, struct reg_val_tbl *vals)
     while (vals->reg_num < OV5645_REG_END) {
         ret = data_write(dev, vals->reg_num, vals->value);
         if (ret) {
-            return ret;
+           printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
+           return ret;
         }
         usleep(DELAY_50);
         vals++;
@@ -1037,28 +1090,118 @@ static int data_write_array(struct i2c_dev_s *dev, struct reg_val_tbl *vals)
  * @param vals Pointer to mode of sensor to initialize
  * @return zero for success or non-zero on any faillure
  */
-static int set_mode(struct reg_val_tbl *vals, struct i2c_dev_s *cam_i2c)
+static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
+                    struct i2c_dev_s *cam_i2c,
+                    enum ov5645_mode_enum current_mode)
 {
     int ret = 0;
+    uint32_t rdata1 = 0;
+    //static uint8_t img_mode;
+
+    printf("[%s]+\n", __func__);
+
+    if (!cdsidev) {
+        printf("[%s]ERROR! cdsidev is invaild.\n", __func__);
+        return -EINVAL;
+    }
 
     if (!cam_i2c) {
+        printf("[%s]ERROR! cam_i2c is invaild.\n", __func__);
         return -EIO;
     }
 
-    /* [TODO] initial mipi dphy, including setup data type and lanes */
+    printf("[%s]current_mode: %d\n", __func__, current_mode);
+    /* [TODO] Check if resolution is the same */
+    if (current_mode == ov5645_mode_init_VGA_640_480)
+    //if (1)
+    {
+        /* [TODO] initial mipi dphy, including setup data type and lanes */
 
-    /* setup registers */
-    ret = data_write_array(cam_i2c, vals);
-    if (ret){
-        return ret;
+        /* Start CDSIRX */
+        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
+
+        /* Wait Line Initialization finish */
+        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+
+        printf("[%s]Start to fill in sensor registers, cdsidev: 0x%x\n", __func__, cdsidev);
+
+        /* setup sensor registers */
+        ret = data_write_array(cam_i2c, vals);
+        if (ret){
+            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
+            return ret;
+        }
+
+#if 1 //bsq test +
+        usleep(DELAY_50);
+        ret = data_write(cam_i2c, 0x4202, 0x00);
+        usleep(DELAY_50);
+#endif //bsq test -
+
+        printf("[%s]Wait Line Initialization Finish...\n", __func__);
+        while ((rdata1 & CDSI0_CDSIRX_LPRX_STATE_INT_STAT_LINEINITDONE_MASK) == 0x0)
+        {
+            rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+            usleep(DELAY_10);
+        }
+        printf("[%s]Init finished! Second LPRX_STATE_INT: %d\n", __func__, rdata1);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
+                   CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS, CDSIRX_DSI_LPTX_MODE_VAL);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
+                   CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
+    } else {
+        printf("[%s]stop csi... \n", __func__);
+
+        mipi_csi2_stop(cdsidev);
+
+        mipi_csi2_start(cdsidev);
+/*=======================================================================================*/
+        printf("[%s]Start CDSIRX... \n", __func__);
+
+         /* Start CDSIRX */
+        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
+
+        /* Wait Line Initialization finish */
+        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+
+        printf("[%s]Start to fill in sensor registers, cdsidev: 0x%x\n", __func__, cdsidev);
+
+        /* setup sensor registers */
+        ret = data_write_array(cam_i2c, vals);
+        if (ret){
+            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
+            return ret;
+        }
+
+#if 1 //bsq test +
+        usleep(DELAY_50);
+        ret = data_write(cam_i2c, 0x4202, 0x00);
+        usleep(DELAY_50);
+#endif //bsq test -
+
+        printf("[%s]Wait Line Initialization Finish...\n", __func__);
+        while ((rdata1 & CDSI0_CDSIRX_LPRX_STATE_INT_STAT_LINEINITDONE_MASK) == 0x0)
+        {
+            rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+            usleep(DELAY_10);
+        }
+        printf("[%s]Init finished! Second LPRX_STATE_INT: %d\n", __func__, rdata1);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
+                   CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS, CDSIRX_DSI_LPTX_MODE_VAL);
+
+        cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
+                   CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
+/*=======================================================================================*/
     }
 
-    /* [TODO] Setup virtual channel */
-
-    /* [TODO] wait for mipi sensor ready */
-
-    /* [TODO] wait for mipi stable */
-
+    printf("[%s]-\n", __func__);
     return ret;
 }
 
@@ -1167,7 +1310,7 @@ static int op_get_required_size(struct device *dev, uint8_t operation,
     struct sensor_info *info = NULL;
     int ret = 0;
 
-    if (!dev || !size || (operation >= 3)) {
+    if (!dev || !size) {
         return -EINVAL;
     }
 
@@ -1180,7 +1323,7 @@ static int op_get_required_size(struct device *dev, uint8_t operation,
     switch (operation) {
     case SIZE_CAPABILITIES:
          *size = CAPB_SIZE;
-       break;    
+       break;
     default:
         ret = -EINVAL;
     }
@@ -1195,7 +1338,7 @@ static int op_get_required_size(struct device *dev, uint8_t operation,
  * @param config Pointer to structure of streams configuration
  * @return 0 on success, negative errno on error
  */
-static int get_support_mode(struct device *dev, 
+static int get_support_mode(struct device *dev,
                             struct streams_cfg_req *sup_modes)
 {
     struct sensor_info *info = NULL;
@@ -1215,9 +1358,9 @@ static int get_support_mode(struct device *dev,
         sup_modes[i].format = (uint16_t)ov5645_mode_settings[i].img_fmt;
         sup_modes[i].padding = PADDING;
     }
-    info->virtual_channel = VIRTUAL_CHANNEL;
-    info->data_type = DATA_TYPE;
-    info->max_size = MAX_WIDTH * MAX_HEIGHT;
+    //info->virtual_channel = VIRTUAL_CHANNEL;
+    //info->data_type = DATA_TYPE;
+    //info->max_size = MAX_WIDTH * MAX_HEIGHT;
 
     return 0;
 }
@@ -1247,7 +1390,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
     }
 
     /* Filter out the data from host request */
-    for(i=0; i < N_WIN_SIZES; i++) {
+    for(i=1; i < N_WIN_SIZES; i++) {
         if(((config->width) == (info->str_cfg_sup[i].width)) &&
             ((config->height) == (info->str_cfg_sup[i].height)) &&
             ((config->format) == (info->str_cfg_sup[i].format))) {
@@ -1256,11 +1399,17 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
             answer->height = info->str_cfg_sup[i].height;
             answer->format = info->str_cfg_sup[i].format;
 
-            answer->virtual_channel = info->virtual_channel;
-            answer->data_type = info->data_type;
-            answer->max_size = info->max_size;
+//            answer->virtual_channel = info->virtual_channel;
+//           answer->data_type = info->data_type;
+//            answer->max_size = info->max_size;
+#if 1
+            printf("[%s]Start to fill in sensor registers, info->cdsidev: 0x%x\n", __func__, info->cdsidev);
+            printf("[%s]ov5645_mode_settings[%d].width: %d\n", __func__, i,ov5645_mode_settings[i].width);
+            printf("[%s]ov5645_mode_settings[%d].height: %d\n", __func__, i,ov5645_mode_settings[i].height);
 
-            if (!set_mode(ov5645_mode_settings[i].regs, info->cam_i2c)) {
+            info->current_mode = i;
+            //if (!set_mode(info->cdsidev, ov5645_mode_settings[i].regs, info->cam_i2c)) {
+            if (!set_mode(info->cdsidev, ov5645_mode_settings[i].regs, info->cam_i2c, info->current_mode)) {
                 *flags = SUPPORT;
                 break;
             } else {
@@ -1271,6 +1420,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
                 *flags = NOT_SUPPORT;
                 return -EINVAL;
             }
+#endif
         }
         *flags = SUPPORT;
     }
@@ -1302,11 +1452,14 @@ static int op_capture(struct device *dev, struct capture_info *capt_info)
         return -EIO;
     }
 
-    if (set_mode(ov5645_start_stream, info->cam_i2c)) {
+#if 1
+    ret = data_write(info->cam_i2c, 0x4202, 0x00);
+#else
+    if (set_mode(info->cdsidev, ov5645_start_stream, info->cam_i2c, info->current_mode)) {
         return -EINVAL;
     }
+#endif
     req_id++;
-
     return ret;
 }
 
@@ -1335,13 +1488,15 @@ static int op_flush(struct device *dev, uint32_t *request_id)
         return -EIO;
     }
 
-    if (set_mode(ov5645_stop_stream, info->cam_i2c)) {
+#if 1
+    ret = data_write(info->cam_i2c, 0x4202, 0x0f);
+#else
+    if (set_mode(info->cdsidev,ov5645_stop_stream, info->cam_i2c, info->current_mode)) {
         return -EINVAL;
     }
-
+#endif
     req_id = 0;
     *request_id = req_id;
-
     return ret;
 }
 
@@ -1396,7 +1551,7 @@ static int ov5645_dev_open(struct device *dev)
 
     info->state = OV5645_STATE_CLOSED;
 
-    /* Get support modes + */
+    /* get support modes + */
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
         return -ENOMEM;
@@ -1425,12 +1580,32 @@ static int ov5645_dev_open(struct device *dev)
     info->pix_fmt.width = VGA_WIDTH;
     info->pix_fmt.height = VGA_HEIGHT;
 
+    /* === init MIPI CSI-2, allocate CSI-2 memory and initialize CSI-2 Rx === */
+    /* allocate CSI-2 memory */
+    info->cdsidev = zalloc(sizeof(struct cdsi_dev));
+    if (info->cdsidev == NULL) {
+        ret = -ENOMEM;
+        goto err_free_metadata;
+    }
 
-    //[TODO] Do MIPI CSI-2 initialization...
-    // Should we call ov5645_csi_init() located at csi_rx_init.c?
-    
+    /* initialize CSI-2 Rx */
+    info->cdsidev = init_csi(CDSI1, CDSI_RX);
+    if (ret) {
+        ret = -EINVAL;
+        goto err_free_cdsi;
+    }
 
-    /* Power on sensor */
+    /* init MIPI CSI-2 */
+    //init datatype
+
+    //init virtual channel
+
+    //init the number of lanes
+
+    printf("[%s]info->cdsidev->base: 0x%x\n", __func__, info->cdsidev->base);
+    printf("[%s]info->cdsidev: 0x%x\n", __func__, info->cdsidev);
+
+    /* power on sensor */
     ret = op_power_up(info->dev);
     if (ret) {
         ret = -EIO;
@@ -1465,10 +1640,14 @@ static int ov5645_dev_open(struct device *dev)
         goto err_free_i2c;
     }
 
-    printf("[BSQ]Sensor ID : 0x%04X\n", (id[1] << 8) | id[0]);
-    
+    printf("[%s]Sensor ID : 0x%04X\n", __func__, (id[1] << 8) | id[0]);
+    printf("[%s]ov5645_init_setting_SXGA_1280_960: 0x%x\n", __func__, ov5645_init_setting_SXGA_1280_960);
+
+    info->current_mode = ov5645_mode_init_VGA_640_480;
     /* VGA(640*480) is default setting */
-    if (set_mode(ov5645_init_setting_30fps_VGA_640_480, info->cam_i2c)) {
+    //if (set_mode(info->cdsidev, ov5645_init_setting_SXGA_1280_960, info->cam_i2c, info->current_mode)) {
+    if (set_mode(info->cdsidev, ov5645_mode_settings[info->current_mode].regs, info->cam_i2c, info->current_mode)) {
+
         ret = -EINVAL;
         goto err_free_i2c;
     }
@@ -1482,13 +1661,18 @@ err_free_i2c:
     up_i2cuninitialize(info->cam_i2c);
 err_power_down:
     op_power_down(dev);
+err_free_cdsi:
+    free(info->cdsidev);
 err_free_metadata:
     free(info->mdata_info);
 err_free_support:
     free(info->str_cfg_sup);
 
+
     free(info);
     info = NULL;
+
+    printf("[%s]***ERROR***\n", __func__);
 
     return ret;
 }
@@ -1507,12 +1691,15 @@ static void ov5645_dev_close(struct device *dev)
 
     info = device_get_private(dev);
 
+    /* free all of the resources */
+    free(info->cdsidev);
     up_i2cuninitialize(info->cam_i2c);
-
     op_power_down(dev);
-
-    free(info->str_cfg_sup);
     free(info->mdata_info);
+    free(info->str_cfg_sup);
+
+    /* deinitialize CSI-2 Rx */
+    csi_uninitialize(info->cdsidev);
 
     info->state = OV5645_STATE_CLOSED;
 }
