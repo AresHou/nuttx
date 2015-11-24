@@ -4,14 +4,15 @@
 #include <arch/tsb/cdsi.h>
 
 /* CDSI deifne */
-#define CDSI0 0
-#define CDSI1 1
+#define CDSI0   0
+#define CDSI1   1
 #define CDSI_RX 0
 #define CDSI_TX 1
 
-#define STOPSTATE 0x00
-#define INTERNAL_STAT_BUSY 0x01
-
+/* Register status */
+#define INTERNAL_STAT_BUSY 0x00000000
+#define HS_LANE_STATUS     0x00000000
+#define LP_LANE_STATUS     0x0040008f
 
 /* CSI-2 register values */
 #define AL_RX_BRG_MODE_VAL                              0x00000003
@@ -79,6 +80,11 @@
 #define CDSI0_CDSIRX_SYSTEM_INIT_VAL                    0x10000010
 #define CDSI0_CDSIRX_CLKEN_VAL                          0x10000010
 
+#define CDSI0_CDSIRX_STOP                               0x00000000
+#define CDSI0_CDSIRX_SYSTEM_CLEAR_VAL                   0x00000001
+#define CDSI0_CDSIRX_CLKDISABLE_VAL                     0x00000000
+#define CDSI0_AL_RX_BRG_DISABLE_VAL                     0x00000000
+
 /* mipi data type */
 #define MIPI_DT_YUV420_8bit        0x18
 #define MIPI_DT_YUV420_10bit       0x19
@@ -99,12 +105,13 @@
 
 /* mipi csi2 API */
 int mipi_csi2_stop(struct cdsi_dev *cdsidev);
-int mipi_csi2_start(struct cdsi_dev *cdsidev);
+int mipi_csi2_init(struct cdsi_dev *cdsidev);
 uint8_t mipi_csi2_get_datatype(struct cdsi_dev *cdsidev);
 int mipi_csi2_set_datatype(struct cdsi_dev *cdsidev, uint8_t data_type);
 uint8_t mipi_csi2_get_virtual_channel(struct cdsi_dev *cdsidev);
 int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t);
 int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn);
-int mipi_csi2_get_error(struct cdsi_dev *cdsidev);
+uint8_t mipi_csi2_get_lane(struct cdsi_dev *cdsidev);
+void mipi_csi2_get_error(struct cdsi_dev *cdsidev);
 
 #endif  /* _MIPI_CSI2_H_ */
