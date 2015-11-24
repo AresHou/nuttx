@@ -9,14 +9,12 @@
 #include <arch/board/cdsi0_reg_def.h>
 #include <arch/board/mipi_csi2.h>
 
-#if 1
-int mipi_csi2_start(struct cdsi_dev *cdsidev)
+int mipi_csi2_init(struct cdsi_dev *cdsidev)
 {
     uint32_t rdata0;
     
-    printf("[%s]start CSI-2 rx\n", __func__);
-    
-    //refer to p.177 on the spec. ARA_ES2_APBridge_rev100.pdf
+    printf("[%s]+++ \n", __func__);
+
     /* Enable the Rx bridge and set to CSI mode */
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, AL_RX_BRG_MODE_VAL);
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_CSI_INFO_OFFS, AL_RX_BRG_CSI_INFO_VAL);
@@ -44,11 +42,13 @@ int mipi_csi2_start(struct cdsi_dev *cdsidev)
     cdsi_write(cdsidev, CDSI0_CDSIRX_VC_ENABLE_OFFS, CDSIRX_VC_ENABLE_VAL);
     cdsi_write(cdsidev, CDSI0_CDSIRX_LINE_INIT_COUNT_OFFS,
                CDSIRX_LINE_INIT_COUNT_VAL);
-    cdsi_write(cdsidev, CDSI0_CDSIRX_HSRXTO_COUNT_OFFS, CDSIRX_HSRXTO_COUNT_VAL);
+    cdsi_write(cdsidev, CDSI0_CDSIRX_HSRXTO_COUNT_OFFS,
+               CDSIRX_HSRXTO_COUNT_VAL);
     cdsi_write(cdsidev, CDSI0_CDSIRX_FUNC_MODE_OFFS, CDSIRX_FUNC_MODE_VAL);
     cdsi_write(cdsidev, CDSI0_CDSIRX_PPI_DPHY_LPTXTIMECNT_OFFS,
                CDSIRX_PPI_DPHY_LPTXTIMECNT_VAL);
-    cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS, CDSIRX_DSI_LPTX_MODE_VAL);
+    cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS,
+               CDSIRX_DSI_LPTX_MODE_VAL);
     cdsi_write(cdsidev, CDSI0_CDSIRX_PPI_DSI_BTA_COUNT_OFFS,
                CDSIRX_PPI_DSI_BTA_COUNT_VAL);
     cdsi_write(cdsidev, CDSI0_CDSIRX_PPI_HSRX_CNTRL_OFFS,
@@ -120,132 +120,131 @@ int mipi_csi2_start(struct cdsi_dev *cdsidev)
 
     /* Wait LPRX calibration finish */
     rdata0 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+
     while ((rdata0 &
             CDSI0_CDSIRX_LPRX_STATE_INT_STAT_AUTOCALDONE_MASK) == 0x0) {
         rdata0 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
     }
     printf("First LPRX_STATE_INT: %d\n", rdata0);
-    
+    printf("[%s]--- \n", __func__);
     return 0;
 }
-#endif 
 
-#if 1
-/* Refer to page 192 5.9.5.2.1.2. Stop Sequence, located at the spec. ARA_ES2_APBridge_rev100.pdf */
 int mipi_csi2_stop(struct cdsi_dev *cdsidev)
 {
     uint32_t rdata3;
-    uint8_t lane_status_hs, lane_status_lp, internal_stat;
+    uint32_t lane_status_hs, lane_status_lp, internal_stat;
 
-    printf("[%s]stop CSI-2 rx + \n", __func__);
-    
-#if 0
+    printf("[%s]+++ \n", __func__);
+
+#if 1
+    /* Stop CDSIRX */
+    cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, 0x00000000);//test
+
     /* Check Lane status */
-    ChkHSLane = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
-    printf("[%s] lane_status_hs = 0x%x \n", __func__, lane_status_hs);
-    while ((lane_status_hs >> 7) == STOPSTATE) {
+    lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
+    printf("[%s] lane_status_hs = 0x%08x \n", __func__, lane_status_hs);
+    while (lane_status_hs != HS_LANE_STATUS) {
         lane_status_hs = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
-    }    
-    
+    }
+
     lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
-    printf("[%s] lane_status_lp = 0x%x \n", __func__, lane_status_lp);
-    while ((lane_status_lp & 0x0f) == 0x1) {
+    printf("[%s] lane_status_lp = 0x%08x \n", __func__, lane_status_lp);
+    while (lane_status_lp == LP_LANE_STATUS) {
         lane_status_lp = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
-    } 
-    
+    }
+
     /* Check CDSIRX Internal state. */
     internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
-    printf("[%s] internal_stat = 0x%x \n", __func__, internal_stat);
+    printf("[%s] internal_stat = 0x%08x \n", __func__, internal_stat);
     while (internal_stat == INTERNAL_STAT_BUSY) {
         internal_stat = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
-    } 
+    }
 #endif
-    
-    /* Stop CDSIRX */
-    cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, 0x00000000);
-    
-    /* Clear CDSIRX internal state */
-    cdsi_write(cdsidev, CDSI0_CDSIRX_SYSTEM_INIT_OFFS, 0x00000001);
-    
-    /* Disable CDSIRX */
-    cdsi_write(cdsidev, CDSI0_CDSIRX_CLKEN_OFFS, 0x00000000);
-    
-    /* Disable RX Bridge */
-    cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, 0x00000000);
 
-    /* Check RX Bridge Status */
-    /* Wait LPRX calibration finish */
+    /* Stop CDSIRX */
+    cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_STOP);
+
+    /* Clear CDSIRX internal state */
+    cdsi_write(cdsidev, CDSI0_CDSIRX_SYSTEM_INIT_OFFS,
+               CDSI0_CDSIRX_SYSTEM_CLEAR_VAL);
+
+    /* Disable CDSIRX */
+    cdsi_write(cdsidev, CDSI0_CDSIRX_CLKEN_OFFS, CDSI0_CDSIRX_CLKDISABLE_VAL);
+
+    /* Disable RX Bridge */
+    cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, CDSI0_AL_RX_BRG_DISABLE_VAL);
+
+    /* Check RX Bridge Status - Wait LPRX calibration finish */
     rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
     while (rdata3 == 0x0) {
         rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
     }
-    
-    printf("[%s]stop CSI-2 rx - \n", __func__);
-    
-    return 0;
 
+    printf("[%s]--- \n", __func__);
+
+    return 0;
 }
-#endif
 
 uint8_t mipi_csi2_get_datatype(struct cdsi_dev *cdsidev)
 {
-    uint8_t dtype;
-
-    dtype = cdsidev->datatype;
-
-    return dtype;
+    return cdsidev->datatype;
 }
 
 int mipi_csi2_set_datatype(struct cdsi_dev *cdsidev, uint8_t data_type)
 {
-    uint8_t dtype;
-
-    dtype = cdsidev->datatype;
     cdsidev->datatype = data_type;
-    dtype = cdsidev->datatype;
-    
+
     return 0;
 }
 
 uint8_t mipi_csi2_get_virtual_channel(struct cdsi_dev *cdsidev)
 {
-    uint8_t v_channel;
-
-    v_channel = cdsi_read(cdsidev, CDSI0_CDSIRX_VC_ENABLE_OFFS);
-
-    return v_channel;
+    return cdsi_read(cdsidev, CDSI0_CDSIRX_VC_ENABLE_OFFS);
 }
 
-int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t VCEn )
+int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t VC_enable )
 {
-
-    /* 2.7.1.3.7 */
-    VCEn = cdsidev->v_channel;
-    cdsi_write(cdsidev, CDSI0_CDSIRX_VC_ENABLE_OFFS, VCEn);
-
+    /*
+     *
+     * 0:disabled, 1:enabled
+     * 0x00: Virtual Channel 0
+     * 0x01: Virtual Channel 1
+     * 0x02: Virtual Channel 2
+     * 0x03: Virtual Channel 3
+     *
+     */
+    cdsi_write(cdsidev, CDSI0_CDSIRX_VC_ENABLE_OFFS, VC_enable);
 
     return 0;
 }
 
 int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn)
 {
-    
-    /* 2.7.1.3.6 */
-    /* 
-       000: All data lane is disabled.
-       001: Data Lane 0 is enabled.
-       010: Data Lane 0 and 1 are enabled.
-       011: Data Lane 0, 1 and 2 are enabled.
-       100: Data Lane 0, 1, 2 and 3 are enabled.
-    */
+    /*
+     *
+     * In order to receive data, at least Data Lane 0 shall be enabled.
+     * 000: All data lane is disabled.
+     * 001: Data Lane 0 is enabled.
+     * 010: Data Lane 0 and 1 are enabled.
+     * 011: Data Lane 0, 1 and 2 are enabled.
+     * 100: Data Lane 0, 1, 2 and 3 are enabled
+     *
+     */
     cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, DTLaneEn);
 
     return 0;
 }
 
-int mipi_csi2_get_error(struct cdsi_dev *cdsidev)
+uint8_t mipi_csi2_get_lane(struct cdsi_dev *cdsidev)
 {
-    
-    
-    return 0;
+    return cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS);
+}
+
+void mipi_csi2_get_error(struct cdsi_dev *cdsidev)
+{
+    uint32_t err_msg = 0;
+
+    err_msg = cdsi_read(cdsidev, CDSI0_CDSIRX_ERR_STATUS_OFFS);
+    printf("[%s]Error Message: 0x%x \n", __func__, err_msg);
 }

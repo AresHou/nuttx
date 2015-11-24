@@ -310,13 +310,14 @@ int camera_test_main(int argc, char *argv[]) {
             ret = get_capabilities(dev);
             break;
         case 's':
-            printf("1.VGA   - 640*480 \n");
-            printf("2.QVGA  - 320*240 \n");
-            printf("3.720P  - 1280*720 \n");
-            printf("4.1080P - 1920*1080 \n");
-            printf("5.QSXGA - 2592*1944 \n");
-            printf("6.SXGA  - 1280*960 \n");
-            printf("7.XGA   - 1024*768 \n");
+            printf("Pick one mode you want to test:\n");
+            printf("1.VGA   - 640*480\n");
+            printf("2.QVGA  - 320*240\n");
+            printf("3.720P  - 1280*720\n");
+            printf("4.1080P - 1920*1080\n");
+            printf("5.QSXGA - 2592*1944\n");
+            printf("6.SXGA  - 1280*960\n");
+            printf("7.XGA   - 1024*768\n\n");
 
             /* Check if input value is out of range */
             while((cmd = getchar()))
@@ -354,7 +355,7 @@ int camera_test_main(int argc, char *argv[]) {
                break;
             case '6':
                 img_size.width   = SXGA_WIDTH;
-                img_size.height  = SXGA_HEIGHT;
+                img_size.height  = SXGA_HEIGHT;                
                break;
             case '7':
                 img_size.width   = XGA_WIDTH;
