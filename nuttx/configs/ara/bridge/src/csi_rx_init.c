@@ -248,8 +248,6 @@ void ov5645_csi_init(struct cdsi_dev *dev)
                CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
 #endif //bsq removed -
 
-    //printf("[%s]dev: 0x%x\n", __func__, dev);
-
 }
 
 struct camera_sensor ov5645_sensor = {
