@@ -57,10 +57,7 @@ static struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
 
     dev->tx = tx;
     dev->base = cdsi == TSB_CDSI0 ? CDSI0_BASE : CDSI1_BASE;
-    printf("[%s]dev->base: 0x%x, dev->tx: %d\n", __func__, dev->base, dev->tx);
-    gcsdi_dev = dev;
-    printf("[%s]gcsdi_dev->base: 0x%x, gcsdi_dev->tx: %d\n", __func__, gcsdi_dev->base, gcsdi_dev->tx);
-
+    
     tsb_clk_enable(cdsi == TSB_CDSI0 ? TSB_CLK_CDSI0_REF : TSB_CLK_CDSI1_REF);
     if (tx) {
         if (cdsi == TSB_CDSI0) {
@@ -80,11 +77,15 @@ static struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
             tsb_clk_enable(TSB_CLK_CDSI0_RX_APB);
             tsb_reset(TSB_RST_CDSI0_RX);
             tsb_reset(TSB_RST_CDSI0_RX_AIO);
+            
+            printf("[%s]dev->base: 0x%x, dev->tx: %d\n", __func__, dev->base, dev->tx);
+            gcsdi_dev = dev;
+            printf("[%s]gcsdi_dev->base: 0x%x, gcsdi_dev->tx: %d\n", __func__, gcsdi_dev->base, gcsdi_dev->tx);
         } else {
             tsb_clk_enable(TSB_CLK_CDSI1_RX_SYS);
             tsb_clk_enable(TSB_CLK_CDSI1_RX_APB);
             tsb_reset(TSB_RST_CDSI1_RX);
-            tsb_reset(TSB_RST_CDSI1_RX_AIO);
+            tsb_reset(TSB_RST_CDSI1_RX_AIO);            
         }
     }
     return dev;
@@ -192,8 +193,13 @@ struct cdsi_dev *init_csi(int cdsi, int tx)
         printf("[%s]csdi_init fails. cdsidev: 0x%x\n",__func__, cdsidev);
         return NULL;
     }
-    
+    //cdsidev->base = 0x40010000;
     printf("[%s]cdsidev: 0x%x\n",__func__, cdsidev);
+    printf("[%s]cdsidev->base: 0x%x\n",__func__, cdsidev->base);
+
+    printf("[%s]tx: 0x%x\n",__func__, tx);
+    printf("[%s]cdsi: 0x%x\n",__func__, cdsi);
+
 #endif
     
     return cdsidev;

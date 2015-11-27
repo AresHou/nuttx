@@ -67,8 +67,8 @@
 #define DELAY_1000          1000
 
 /* OV5645 power */
-#define OV5645_RESET        3
-#define OV5645_PWDN         4
+#define OV5645_RESET        7
+#define OV5645_PWDN         8
 
 /* OV5645 I2C address */
 #define OV5645_I2C_ADDR     0x3c
@@ -91,18 +91,13 @@
 #define HI_BYTE             1
 #define LOW_BYTE            0
 #define OV5645_REG_END      0xffff
-#define OV5645_REG_DELAY    0xfffe
 #define ID_SIZE             2
-#define CURRENT_CFG_SIZE    1
 #define MATA_DATA_SIZE      8
 #define CAPB_SIZE           16
 
-#define CAP_SET_SIZE        8
-#define NUM_STREAM_LIMIT    4
 #define FRAME_NUMBER        6
 #define STREAM              8
 
-#define DATA_TYPE           0x08 //check MIPI spec.
 #define VIRTUAL_CHANNEL     0
 
 /* Image sizes */
@@ -1042,24 +1037,6 @@ struct ov5645_mode_info ov5645_mode_settings[] = {
 #define N_WIN_SIZES (ARRAY_SIZE(ov5645_mode_settings))
 
 /**
- * @brief ov5645 start stream register
- */
-struct reg_val_tbl ov5645_start_stream[] = {
-    {0x4202, 0x00},
-
-    {OV5645_REG_END, 0x00},/* END MARKER */
-};
-
-/**
- * @brief ov5645 stop stream register
- */
-struct reg_val_tbl ov5645_stop_stream[] = {
-    {0x4202, 0x0f},
-
-    {OV5645_REG_END, 0x00},/* END MARKER */
-};
-
-/**
  * @brief i2c read for camera sensor (It reads a single byte)
  * @param dev Pointer to structure of i2c device data
  * @param addr Address of i2c to read
@@ -1245,7 +1222,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
             return ret;
         }
 
-#if 1 //bsq test +        
+#if 1 //bsq test +
         usleep(DELAY_10);
         /* Start stream */
         ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_on);
@@ -1254,7 +1231,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
             return ret;
         }
         usleep(DELAY_10);
-        
+
 #endif //bsq test -
 
         printf("[%s]Wait Line Initialization...\n", __func__);
@@ -1490,7 +1467,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
             printf("[%s]answer->data_type: 0x%x\n",
                    __func__, answer->data_type);
 
-            printf("[%s]index:%d, (w,h)=(%d,%d)\n", __func__, i, 
+            printf("[%s]index:%d, (w,h)=(%d,%d)\n", __func__, i,
                    ov5645_mode_settings[i].width,
                    ov5645_mode_settings[i].height);
 
@@ -1628,39 +1605,29 @@ static int ov5645_dev_open(struct device *dev)
     if (!dev || !device_get_private(dev)) {
         return -EINVAL;
     }
-
+    printf("[%s]-0-\n", __func__);
+    
     info = device_get_private(dev);
 
-    info->state = OV5645_STATE_CLOSED;
+    if(info->state == OV5645_STATE_OPEN) {
+        return -EBUSY;
+    }
+    printf("[%s]-1-\n", __func__);
 
     /* === get support modes === */
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
-        return -ENOMEM;
+        ret = -ENOMEM;
+        goto err_free_info;
     }
-
+    printf("[%s]-2-\n", __func__);
+    
     ret = get_support_mode(info->cdsidev, info->str_cfg_sup);
     if (ret) {
         ret = -ENOMEM;
         goto err_free_support;
     }
-
-    /* === initialize meta data === */
-    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct metadata_info));
-    if (info->mdata_info == NULL) {
-        ret = -ENOMEM;
-        goto err_free_support;
-    }
-
-    info->mdata_info->request_id = req_id;
-    info->mdata_info->frame_number = FRAME_NUMBER;
-    info->mdata_info->stream = STREAM;
-    info->mdata_info->padding = PADDING;
-    info->mdata_info->data = m_data;
-
-    info->pix_fmt.pixelformat = ov5645_out_fmt;
-    info->pix_fmt.width = SXGA_WIDTH;
-    info->pix_fmt.height = SXGA_HEIGHT;
+    printf("[%s]-3-\n", __func__);    
 
     /* === power on ov5645 sensor and get sensor ID === */
 
@@ -1668,8 +1635,9 @@ static int ov5645_dev_open(struct device *dev)
     ret = op_power_up(info->dev);
     if (ret) {
         ret = -EIO;
-        goto err_free_metadata;
+        goto err_free_support;
     }
+    printf("[%s]-4-\n", __func__);
 
     /* initialize I2C */
     info->cam_i2c = NULL;
@@ -1678,22 +1646,28 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EIO;
         goto err_power_down;
     }
+    printf("[%s]-5-\n", __func__);
 
     /* get sensor id (high) */
     ret = data_read(info->cam_i2c, OV5645_ID_HIGH, &id[HI_BYTE]);
     if (ret){
         goto err_free_i2c;
     }
+    printf("[%s]-6-\n", __func__);
+
     if (id[HI_BYTE] != OV5645_ID_H) {
         ret = -ENODEV;
         goto err_free_i2c;
     }
+    printf("[%s]-7-\n", __func__);
 
     /* get sensor id (low) */
     ret = data_read(info->cam_i2c, OV5645_ID_LOW, &id[LOW_BYTE]);
     if (ret) {
         goto err_free_i2c;
     }
+    printf("[%s]-8-\n", __func__);
+
     if (id[LOW_BYTE] != OV5645_ID_L){
         ret = -ENODEV;
         goto err_free_i2c;
@@ -1710,37 +1684,32 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_i2c;
     }
-
-    info->cdsidev = init_csi(CDSI1, CDSI_RX);
+    printf("[%s]-9-\n", __func__);
+    
+    info->cdsidev = init_csi(CDSI0, CDSI_RX);
     if (ret) {
         ret = -EINVAL;
         goto err_free_cdsi;
     }
-
-    /* === setup sensor mode - 1280*960 is default setting === */
-    if (set_mode(info->cdsidev, ov5645_mode_settings[info->current_mode].regs,
-        info->cam_i2c, info->current_mode, info->new_mode)) {
-
-        ret = -EINVAL;
-        goto err_free_cdsi;
-    }
-
+    printf("[%s]-10-\n", __func__);
+    
     /* get virtual channel */
     info->cdsidev->v_channel = mipi_csi2_get_virtual_channel(info->cdsidev);
 
     /* get lane */
-    info->cdsidev->lanes = mipi_csi2_get_lane(info->cdsidev);
+    info->cdsidev->lanes = mipi_csi2_get_lane(info->cdsidev); 
 
     /* get ov5645 sensor data type */
     ret = data_read(info->cam_i2c, 0x4300, &ov5645_datatype);
     if (ret) {
         goto err_free_cdsi;
     }
+    printf("[%s]-11-\n", __func__);
 
     /* set data type */
     mipi_csi2_set_datatype(info->cdsidev, ov5645_datatype);
-
-#if 1 //for debugging
+    
+ #if 1 //for debugging
     printf("[%s]info->cdsidev: 0x%x\n",
            __func__, info->cdsidev);
 
@@ -1756,27 +1725,54 @@ static int ov5645_dev_open(struct device *dev)
     printf("[%s]info->cdsidev->base: 0x%x\n",
            __func__, info->cdsidev->base);
 #endif
+   
+    /* === setup sensor mode - 1280*960 is default setting === */
+    if (set_mode(info->cdsidev, ov5645_mode_settings[info->current_mode].regs,
+        info->cam_i2c, info->current_mode, info->new_mode)) {
+        ret = -EINVAL;
+        goto err_free_cdsi;
+    }
+    printf("[%s]-12-\n", __func__);
+    
+    /* === initialize meta data === */
+    info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct metadata_info));
+    if (info->mdata_info == NULL) {
+        ret = -ENOMEM;
+        goto err_free_metadata;
+    }
+    printf("[%s]-13-\n", __func__);
+
+    info->mdata_info->request_id = req_id;
+    info->mdata_info->frame_number = FRAME_NUMBER;
+    info->mdata_info->stream = STREAM;
+    info->mdata_info->padding = PADDING;
+    info->mdata_info->data = m_data;
+
+    info->pix_fmt.pixelformat = ov5645_out_fmt;
+    info->pix_fmt.width = SXGA_WIDTH;
+    info->pix_fmt.height = SXGA_HEIGHT;
 
     info->state = OV5645_STATE_OPEN;
 
     return ret;
 
 /* Error Handle */
+err_free_metadata:
+    free(info->mdata_info);
 err_free_cdsi:
     free(info->cdsidev);
 err_free_i2c:
     up_i2cuninitialize(info->cam_i2c);
 err_power_down:
     op_power_down(dev);
-err_free_metadata:
-    free(info->mdata_info);
 err_free_support:
     free(info->str_cfg_sup);
-
+err_free_info:
     free(info);
     info = NULL;
 
     printf("[%s]***ERROR*** Fails to open driver!\n", __func__);
+    info->state = OV5645_STATE_CLOSED;
 
     return ret;
 }
@@ -1788,6 +1784,8 @@ err_free_support:
 static void ov5645_dev_close(struct device *dev)
 {
     struct sensor_info *info = NULL;
+
+    printf("[%s]+\n", __func__);
 
     if (!dev || !device_get_private(dev)) {
         return;
@@ -1804,10 +1802,13 @@ static void ov5645_dev_close(struct device *dev)
 
     /* deinitialize CSI-2 Rx */
     csi_uninitialize(info->cdsidev);
-    
+
     //mipi_csi2_stop(cdsidev);
 
     info->state = OV5645_STATE_CLOSED;
+    
+    printf("[%s]-\n", __func__);
+
 }
 
 /**
@@ -1817,7 +1818,7 @@ static void ov5645_dev_close(struct device *dev)
  */
 static int ov5645_dev_probe(struct device *dev)
 {
-    struct sensor_info *info = NULL;
+    struct sensor_info *info = NULL;    
 
     if (!dev) {
         return -EINVAL;
@@ -1828,8 +1829,9 @@ static int ov5645_dev_probe(struct device *dev)
         return -ENOMEM;
     }
 
+    info->state = OV5645_STATE_CLOSED;
     info->dev = dev;
-    device_set_private(dev, info);
+    device_set_private(dev, info);    
 
     return 0;
 }

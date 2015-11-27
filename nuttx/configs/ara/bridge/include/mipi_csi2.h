@@ -110,7 +110,7 @@ uint8_t mipi_csi2_get_datatype(struct cdsi_dev *cdsidev);
 int mipi_csi2_set_datatype(struct cdsi_dev *cdsidev, uint8_t data_type);
 uint8_t mipi_csi2_get_virtual_channel(struct cdsi_dev *cdsidev);
 int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t);
-int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn);
+int mipi_csi2_set_lane(struct cdsi_dev *cdsidev);
 uint8_t mipi_csi2_get_lane(struct cdsi_dev *cdsidev);
 void mipi_csi2_get_error(struct cdsi_dev *cdsidev);
 
