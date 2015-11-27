@@ -219,7 +219,7 @@ int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t VC_enable )
     return 0;
 }
 
-int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn)
+int mipi_csi2_set_lane(struct cdsi_dev *cdsidev)
 {
     /*
      *
@@ -231,7 +231,7 @@ int mipi_csi2_set_lanes(struct cdsi_dev *cdsidev, uint8_t DTLaneEn)
      * 100: Data Lane 0, 1, 2 and 3 are enabled
      *
      */
-    cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, DTLaneEn);
+    cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, cdsidev->lanes);
 
     return 0;
 }
