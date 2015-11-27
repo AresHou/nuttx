@@ -175,6 +175,7 @@ static struct device devices[] = {
 #endif
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
 #ifdef CONFIG_APB_CAMERA //bsq adds +
+#ifndef CONFIG_APB_AP
     {
         .type           = DEVICE_TYPE_CAMERA_HW,
         .name           = "camera",
@@ -182,6 +183,7 @@ static struct device devices[] = {
         .id             = 0,
     },
 #endif //bsq adds -     
+#endif
 #endif
 };
 
@@ -218,9 +220,11 @@ static void bdb_driver_register(void)
 #endif
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
 #ifdef CONFIG_APB_CAMERA //bsq adds +
+#ifndef CONFIG_APB_AP
     extern struct device_driver camera_driver;
     device_register_driver(&camera_driver);
 #endif //bsq adds -   
+#endif
 #endif
 }
 #endif

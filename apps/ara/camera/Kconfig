@@ -35,7 +35,8 @@ config ARA_CAMERA_TEST
     bool "Ara camera test program"
     default n if !DEBUG
     default y if DEBUG
-    depends on ARA_BRIDGE_HAVE_CAMERA && !GREYBUS_CAMERA && !APB_AP
+    #depends on ARA_BRIDGE_HAVE_CAMERA && !GREYBUS_CAMERA && !CONFIG_APB_AP && CONFIG_APB_CAMERA
+    depends on ARA_BRIDGE_HAVE_CAMERA && !GREYBUS_CAMERA
     ---help---
         Enable the camera test program.
 
