@@ -1,3 +1,31 @@
+/*
+ * Copyright (c) 2015 Google, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+ 
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,16 +35,52 @@
 #include <debug.h>
 #include <arch/board/cdsi0_offs_def.h>
 #include <arch/board/cdsi0_reg_def.h>
+#include <arch/tsb/cdsi.h>
 #include <arch/board/mipi_csi2.h>
 
 /* Delay Time */
 #define CSI2_DELAY_10            10
 
+struct cdsi_dev *init_csi_rx(int cdsi, int tx)
+{
+    struct cdsi_dev *cdsidev;
+    
+    printf("[%s]+\n",__func__);
+
+    cdsidev = cdsi_initialize(cdsi, tx);
+    if (!cdsidev) {
+        printf("[%s]csdi_init fails. cdsidev: 0x%x\n",__func__, cdsidev);
+        return NULL;
+    }
+
+#if 1 //For debugging
+    printf("[%s]cdsidev: 0x%x\n",__func__, cdsidev);
+    printf("[%s]cdsidev->base: 0x%x\n",__func__, cdsidev->base);
+
+    printf("[%s]tx: %d\n",__func__, tx);
+    printf("[%s]cdsi: 0x%x\n",__func__, cdsi);
+#endif
+
+    printf("[%s]-\n",__func__);
+
+    return cdsidev;
+}
+
+void deinit_csi_rx(struct cdsi_dev *dev)
+{
+#if 1 //For debugging
+    printf("[%s]cdsidev: 0x%x\n",__func__, dev);
+    printf("[%s]cdsidev->base: 0x%x\n",__func__, dev->base);
+    printf("[%s]tx: %d\n",__func__, dev->tx);
+#endif
+
+    cdsi_uninitialize(dev);
+}
+
+
 int mipi_csi2_start(struct cdsi_dev *cdsidev)
 {
     uint32_t rdata0;
-
-    printf("[%s]+++ \n", __func__);
 
     /* Enable the Rx bridge and set to CSI mode */
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, AL_RX_BRG_MODE_VAL);
@@ -121,7 +185,6 @@ int mipi_csi2_start(struct cdsi_dev *cdsidev)
     cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_WAITBTA_COUNT_OFFS,
                CDSI0_CDSIRX_DSI_WAITBTA_COUNT_VAL);
 
-    printf("[%s]--- \n", __func__);
     return 0;
 }
 
@@ -131,9 +194,6 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     uint32_t lane_status_hs, lane_status_lp, internal_stat;
 
     printf("[%s]+++ \n", __func__);
-
-    /* Stop CDSIRX */
-    //cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_STOP);
 
 #if 0
     /* Check Lane status - HS */
@@ -150,7 +210,7 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     while (lane_status_lp != LP_LANE_STATUS) {
         lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     }
-#endif
+
 
     /* Check CDSIRX Internal state. */
     internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
@@ -158,6 +218,7 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     while (internal_stat != INTERNAL_STAT_BUSY) {
         internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
     }
+#endif
 
     /* Stop CDSIRX */
     cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_STOP);
@@ -172,11 +233,17 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     /* Disable RX Bridge */
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, CDSI0_AL_RX_BRG_DISABLE_VAL);
 
+    usleep(CSI2_DELAY_10);
+
+    printf("[%s] Check RX Bridge Status...\n", __func__);
+
+#if 0
     /* Check RX Bridge Status - Check the internal state is no busy */
     rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
     while (rdata3 != 0x0) {
         rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
     }
+#endif
 
     printf("[%s]--- \n", __func__);
 

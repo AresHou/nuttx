@@ -45,7 +45,7 @@ uint32_t cdsi_read(struct cdsi_dev *dev, uint32_t addr)
     return getreg32(dev->base + addr);
 }
 
-static struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
+struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
 {
     struct cdsi_dev *dev;
 
@@ -55,6 +55,10 @@ static struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
 
     dev->tx = tx;
     dev->base = cdsi == TSB_CDSI0 ? CDSI0_BASE : CDSI1_BASE;
+
+#if 0 //For debugging
+    printf("[%s]cdsi: %s\n", __func__, cdsi ? "TSB_CDSI0" : "TSB_CDSI1");
+#endif
 
     tsb_clk_enable(cdsi == TSB_CDSI0 ? TSB_CLK_CDSI0_REF : TSB_CLK_CDSI1_REF);
     if (tx) {
@@ -86,10 +90,15 @@ static struct cdsi_dev *cdsi_initialize(int cdsi, int tx)
     return dev;
 }
 
-static void cdsi_uninitialize(struct cdsi_dev *dev)
+void cdsi_uninitialize(struct cdsi_dev *dev)
 {
     int cdsi = dev->base == CDSI0_BASE ? TSB_CDSI0 : TSB_CDSI1;
     tsb_clk_disable(cdsi == TSB_CDSI0 ? TSB_CLK_CDSI0_REF : TSB_CLK_CDSI1_REF);
+
+#if 0 //For debugging
+    printf("[%s]cdsi: %s\n", __func__, cdsi ? "TSB_CDSI0" : "TSB_CDSI1");
+#endif
+
     if (dev->tx) {
         if (cdsi == TSB_CDSI0) {
             tsb_clk_disable(TSB_CLK_CDSI0_TX_SYS);
@@ -166,29 +175,6 @@ struct cdsi_dev *csi_initialize(struct camera_sensor *sensor, int cdsi, int tx)
  * @param dev Pointer to cdsi to uninitialize
  */
 void csi_uninitialize(struct cdsi_dev *dev)
-{
-    cdsi_uninitialize(dev);
-}
-
-struct cdsi_dev *init_csi_rx(int cdsi, int tx)
-{
-    struct cdsi_dev *cdsidev;
-
-    cdsidev = cdsi_initialize(cdsi, tx);
-    if (!cdsidev) {
-        printf("[%s]csdi_init fails. cdsidev: 0x%x\n",__func__, cdsidev);
-        return NULL;
-    }
-    printf("[%s]cdsidev: 0x%x\n",__func__, cdsidev);
-    printf("[%s]cdsidev->base: 0x%x\n",__func__, cdsidev->base);
-
-    printf("[%s]tx: 0x%x\n",__func__, tx);
-    printf("[%s]cdsi: 0x%x\n",__func__, cdsi);
-
-    return cdsidev;
-}
-
-void *deinit_csi_rx(struct cdsi_dev *dev)
 {
     cdsi_uninitialize(dev);
 }

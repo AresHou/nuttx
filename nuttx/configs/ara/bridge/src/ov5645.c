@@ -1162,17 +1162,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
         printf("[%s]init mode... \n", __func__);
 
         /* Do ov5645 init mode settings */
-#if 0
-        /* setup CDSIRX internal state */
-        //cdsi_write(cdsidev, CDSI0_CDSIRX_SYSTEM_INIT_OFFS,
-        //           CDSI0_CDSIRX_SYSTEM_CLEAR_VAL);
 
-        /* Enable CDSIRX */
-        cdsi_write(cdsidev, CDSI0_CDSIRX_CLKEN_OFFS, CDSIRX_CLKEN_VAL);
-
-        /* Enable RX Bridge */
-        cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, AL_RX_BRG_MODE_VAL);
-#endif
         /* Start CDSIRX */
         cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
 
@@ -1212,9 +1202,6 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
     {
         printf("[%s]switch mode... \n", __func__);
 
-//        deinit_csi_rx(cdsidev);// disable clk
-//        cdsidev = init_csi_rx(CDSI0, CDSI_RX); //enable clk
-
         /* Start CDSIRX */
         cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
 
@@ -1229,8 +1216,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
             return ret;
         }
 
-#if 1 //bsq test +
-        usleep(DELAY_5000);
+#if 0 //bsq test +
         /* Start stream */
         ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_on);
         if (ret) {
@@ -1241,9 +1227,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
 #endif //bsq test -
 
         printf("[%s]Wait Line Initialization...\n", __func__);
-
-        //mipi_csi2_get_error(cdsidev);// MIPI CSI-2 debug...
-
+#if 0
         while ((rdata1 & CDSI0_CDSIRX_LPRX_STATE_INT_STAT_LINEINITDONE_MASK)
                == 0x0)
         {
@@ -1251,7 +1235,7 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
             usleep(DELAY_10);
         }
         printf("[%s]Second LPRX_STATE_INT: %d\n", __func__, rdata1);
-
+#endif
         cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
                    CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
 
@@ -1622,15 +1606,14 @@ static int ov5645_dev_open(struct device *dev)
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
         ret = -ENOMEM;
-        goto err_free_info;
+        return ret;
     }
-
     ret = get_support_mode(info->cdsidev, info->str_cfg_sup);
     if (ret) {
         ret = -ENOMEM;
         goto err_free_support;
     }
-
+    
     /* === power on ov5645 sensor and get sensor ID === */
 
     /* power on sensor */
@@ -1686,11 +1669,11 @@ static int ov5645_dev_open(struct device *dev)
     if (info->cdsidev == NULL) {
         ret = -EINVAL;
         goto err_free_cdsi;
-    }
+    }    
 
     /* Execute CSI-2 RX start sequence */
     mipi_csi2_start(info->cdsidev);
-
+    
     /* get virtual channel */
     info->cdsidev->v_channel = mipi_csi2_get_virtual_channel(info->cdsidev);
 
@@ -1710,7 +1693,7 @@ static int ov5645_dev_open(struct device *dev)
     /* set data type */
     mipi_csi2_set_datatype(info->cdsidev, ov5645_datatype);
 
- #if 1 //for debugging
+ #if 0 //for debugging
     printf("[%s]info->cdsidev: 0x%x\n",
            __func__, info->cdsidev);
 
@@ -1766,9 +1749,6 @@ err_power_down:
     op_power_down(dev);
 err_free_support:
     free(info->str_cfg_sup);
-err_free_info:
-    free(info);
-    info = NULL;
 
     printf("[%s]***ERROR*** Fails to open driver!\n", __func__);
     info->state = OV5645_STATE_CLOSED;
@@ -1792,14 +1772,7 @@ static void ov5645_dev_close(struct device *dev)
 
     info = device_get_private(dev);
 
-    /* free all of the resources */
-    free(info->cdsidev);
-    up_i2cuninitialize(info->cam_i2c);
-    op_power_down(dev);
-    free(info->mdata_info);
-    free(info->str_cfg_sup);
-
-#if 1
+#if 0
     /* Stop stream */
     data_write(info->cam_i2c, REG_STREAM_ONOFF, stream_off);
     usleep(DELAY_10);
@@ -1808,12 +1781,18 @@ static void ov5645_dev_close(struct device *dev)
     mipi_csi2_stop(info->cdsidev);
 
     /* deinitialize CSI-2 Rx */
-    //deinit_csi_rx(info->cdsidev);// disable clk
+    deinit_csi_rx(info->cdsidev);
+
+    /* free all of the resources */
+    free(info->cdsidev);
+    up_i2cuninitialize(info->cam_i2c);
+    op_power_down(dev);
+    free(info->mdata_info);
+    free(info->str_cfg_sup); 
 
     info->state = OV5645_STATE_CLOSED;
 
     printf("[%s]-\n", __func__);
-
 }
 
 /**
