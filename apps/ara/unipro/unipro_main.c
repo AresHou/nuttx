@@ -191,6 +191,7 @@ int unipro_main(int argc, char **argv) {
 
     printf("%s: %x Peer: %d Selector: %u\n", read ? "Read" : "Write", attr, peer, selector);
 
+
     rc = unipro_attr_access(attr, &val, selector, peer, !read);
     if (rc) {
         printf("Attribute access failed: %d", rc);

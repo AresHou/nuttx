@@ -31,6 +31,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <nuttx/unipro/unipro.h>
 
 #include <nuttx/device_camera.h>
 
@@ -268,6 +269,26 @@ static int metadata_transmit(struct device *dev, uint8_t operation)
     return result;
 }
 
+static int unipro_read(void)
+{
+    uint16_t attr = 0xd092;
+    int result = 0;    
+    int read = 1;
+    int peer = 0;
+    uint16_t selector = 0;
+    uint32_t val = 0;
+    
+    printf("%s: %x Peer: %d Selector: %u\n", read ? "Read" : "Write", attr, peer, selector);
+    result = unipro_attr_access(attr, &val, selector, peer, !read);
+    if (result) {
+        printf("Attribute access failed: %d", result);        
+        return result;
+    }
+    printf("[%x]: %x result_code: %x\n", attr, val, result);
+    
+    return result;  
+}
+
 static void print_usage(void) {
     printf("Usage: camera_test < c | s | t | p | m | e >\n");
     printf("camera operation tests:\n");
@@ -277,6 +298,7 @@ static void print_usage(void) {
     printf("          p : Stop to capture\n");
     printf("          m : Meta-Data requests\n");
     printf("          e : Exit camera test application\n"); 
+    printf("          u : Read CSI-2 RX via attribute 0xd092\n"); 
     printf("\n");
 }
 
@@ -380,6 +402,10 @@ int camera_test_main(int argc, char *argv[]) {
         case 'm':
             /** Get camera module supported configure */
             ret = metadata_transmit(dev, SIZE_CAPABILITIES);
+           break;
+        case 'u':
+            /** Read CSI-2 RX via attribute 0xd092 */
+            ret = unipro_read();
            break;
         default:
             print_usage();

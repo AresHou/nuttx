@@ -66,7 +66,8 @@ struct cdsi_dev *csi_initialize(struct camera_sensor *sensor, int dsi, int tx);
 void csi_uninitialize(struct cdsi_dev *dev);
 
 #if 1
-struct cdsi_dev *init_csi(int cdsi, int tx);
+struct cdsi_dev *init_csi_rx(int cdsi, int tx);
+void *deinit_csi_rx(struct cdsi_dev *dev);
 #endif
 
 #endif
