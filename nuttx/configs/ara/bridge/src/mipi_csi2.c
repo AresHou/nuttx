@@ -9,10 +9,13 @@
 #include <arch/board/cdsi0_reg_def.h>
 #include <arch/board/mipi_csi2.h>
 
-int mipi_csi2_init(struct cdsi_dev *cdsidev)
+/* Delay Time */
+#define CSI2_DELAY_10            10
+
+int mipi_csi2_start(struct cdsi_dev *cdsidev)
 {
     uint32_t rdata0;
-    
+
     printf("[%s]+++ \n", __func__);
 
     /* Enable the Rx bridge and set to CSI mode */
@@ -118,14 +121,6 @@ int mipi_csi2_init(struct cdsi_dev *cdsidev)
     cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_WAITBTA_COUNT_OFFS,
                CDSI0_CDSIRX_DSI_WAITBTA_COUNT_VAL);
 
-    /* Wait LPRX calibration finish */
-    rdata0 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
-
-    while ((rdata0 &
-            CDSI0_CDSIRX_LPRX_STATE_INT_STAT_AUTOCALDONE_MASK) == 0x0) {
-        rdata0 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
-    }
-    printf("First LPRX_STATE_INT: %d\n", rdata0);
     printf("[%s]--- \n", __func__);
     return 0;
 }
@@ -137,30 +132,32 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
 
     printf("[%s]+++ \n", __func__);
 
-#if 1
     /* Stop CDSIRX */
-    cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, 0x00000000);//test
+    //cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_STOP);
 
-    /* Check Lane status */
+#if 0
+    /* Check Lane status - HS */
     lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
     printf("[%s] lane_status_hs = 0x%08x \n", __func__, lane_status_hs);
     while (lane_status_hs != HS_LANE_STATUS) {
-        lane_status_hs = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
+        lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
+        usleep(CSI2_DELAY_10);
     }
 
+    /* Check Lane status - LP */
     lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     printf("[%s] lane_status_lp = 0x%08x \n", __func__, lane_status_lp);
-    while (lane_status_lp == LP_LANE_STATUS) {
-        lane_status_lp = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
+    while (lane_status_lp != LP_LANE_STATUS) {
+        lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     }
+#endif
 
     /* Check CDSIRX Internal state. */
     internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
     printf("[%s] internal_stat = 0x%08x \n", __func__, internal_stat);
-    while (internal_stat == INTERNAL_STAT_BUSY) {
-        internal_stat = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
+    while (internal_stat != INTERNAL_STAT_BUSY) {
+        internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
     }
-#endif
 
     /* Stop CDSIRX */
     cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_STOP);
@@ -175,10 +172,10 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     /* Disable RX Bridge */
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, CDSI0_AL_RX_BRG_DISABLE_VAL);
 
-    /* Check RX Bridge Status - Wait LPRX calibration finish */
-    rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
-    while (rdata3 == 0x0) {
-        rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS);
+    /* Check RX Bridge Status - Check the internal state is no busy */
+    rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
+    while (rdata3 != 0x0) {
+        rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
     }
 
     printf("[%s]--- \n", __func__);
@@ -232,6 +229,7 @@ int mipi_csi2_set_lane(struct cdsi_dev *cdsidev)
      *
      */
     cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, cdsidev->lanes);
+    cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, 0x00000012);
 
     return 0;
 }

@@ -10,9 +10,10 @@
 #define CDSI_TX 1
 
 /* Register status */
-#define INTERNAL_STAT_BUSY 0x00000000
-#define HS_LANE_STATUS     0x00000000
-#define LP_LANE_STATUS     0x0040008f
+#define INTERNAL_STAT_BUSY  0x00000000
+#define HS_LANE_STATUS      0x00000000
+#define LP_LANE_STATUS      0x0040008f
+#define AL_RX_BRG_MODE_BUSY 0x04
 
 /* CSI-2 register values */
 #define AL_RX_BRG_MODE_VAL                              0x00000003
@@ -105,7 +106,13 @@
 
 /* mipi csi2 API */
 int mipi_csi2_stop(struct cdsi_dev *cdsidev);
-int mipi_csi2_init(struct cdsi_dev *cdsidev);
+int mipi_csi2_start(struct cdsi_dev *cdsidev);
+
+#if 0
+struct cdsi_dev *init_csi_rx(int cdsi, int tx);
+void *deinit_csi_rx(struct cdsi_dev *dev);
+#endif
+
 uint8_t mipi_csi2_get_datatype(struct cdsi_dev *cdsidev);
 int mipi_csi2_set_datatype(struct cdsi_dev *cdsidev, uint8_t data_type);
 uint8_t mipi_csi2_get_virtual_channel(struct cdsi_dev *cdsidev);
