@@ -30,11 +30,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <errno.h>
 
 #include <nuttx/gpio.h>
 #include <nuttx/wqueue.h>
 #include <arch/tsb/cdsi.h>
 #include <arch/tsb/gpio.h>
+#include <arch/board/csi.h>
 #include <arch/board/cdsi0_offs_def.h>
 #include <arch/board/cdsi0_reg_def.h>
 
@@ -156,17 +158,54 @@
 #define CSI_TX_PRIORITY      (60)
 #define CSI_TX_STACK_SIZE    (2048)
 
+/* State of CSI */
+#define CSI_STATE_STOP  0
+#define CSI_STATE_START 1
+#define CSI_STATE_BUSY  2
+
+/* Command of CSI TX */
+#define CSI_CMD_STOP    0
+#define CSI_CMD_START   1
+
 /**
- * @brief cdsi_sensor_init callback function of ov5645 camera_sensor
- * @param dev dev pointer to structure of cdsi_dev device data
- * @return void function without return value
+ * @brief csi tx information
  */
-void ov5645_csi_init(struct cdsi_dev *dev)
+struct csi_tx_info {
+    /** data from AP */
+    struct csi_control csi_ctrl;
+    /** csi commmand */
+    uint32_t csi_cmd;
+    /** csi state */
+    uint32_t csi_state;
+    /** low level driver */
+    struct cdsi_dev *csi_dev;
+    /** semapher for csi tx operation */
+    sem_t csi_sem;
+    /** csi tx control thread */
+    pthread_t csi_thread;
+};
+
+/**
+ * @brief csi tx information
+ */
+struct csi_tx_info *info;
+
+/**
+ * @brief Set the registers in CSI controller to start transfer.
+ *
+ * @param dev Pointer to the structure of CSI device driver
+ * @return None.
+ */
+static void csi_reg_start(struct cdsi_dev *dev)
 {
     uint32_t rdata;
 
-    printf("ov5645_csi_init callback function for CSI-2 tx\n");
+    printf("csi_reg_start + \n");
 
+    /* for csi_stop use */
+    info->csi_dev = dev;
+    info->csi_state = CSI_STATE_BUSY;
+    
     /* Set to Tx mode for CDSI */
     cdsi_write(dev, CDSI0_AL_TX_BRG_CDSITX_MODE_OFFS,
                AL_TX_BRG_CDSITX_MODE_VAL);
@@ -423,34 +462,161 @@ void ov5645_csi_init(struct cdsi_dev *dev)
     cdsi_write(dev, CDSI0_AL_RX_BRG_CSI_INFO_OFFS,
                CDSI0_AL_RX_BRG_CSI_INFO_VAL);
     cdsi_write(dev, CDSI0_AL_RX_BRG_CSI_DT0_OFFS, CDSI0_AL_RX_BRG_CSI_DT0_VAL);
+
+    info->csi_state = CSI_STATE_START;
 }
 
-struct camera_sensor ov5645_sensor = {
-    .cdsi_sensor_init = ov5645_csi_init,
+/**
+ * @brief Set the registers in CSI controller to stop transfer.
+ *
+ * @param dev Pointer to the structure of CSI device driver
+ * @return None.
+ */
+static void csi_reg_stop(struct cdsi_dev *dev)
+{
+    printf("csi_reg_stop + \n");
+
+    info->csi_state = CSI_STATE_BUSY;
+
+    /* Stop the Pixel I/F of CDSITX */
+
+    /* Wait the stop of Pixel I/F */
+
+    /* Wait until the transmission from UniPro to CDSITX is stopped */
+
+    /* Disable the Tx bridge */
+
+    /* Assert the Tx bridge reset */
+
+    /* Stop the APF function */
+
+    /* Disable the PPI function */
+
+    /* Disable the clock distribution for LINK and APF */
+
+    /* Assert the APF reset */
+
+    /* Assert the LINK reset */
+
+    /* Initialize the PPI */
+
+    /* Enable the clock distribution to stop the clock lane of D-PHY */
+
+    /* Wait for stop the clock lane of D-PHY */
+
+    /* Disable the clock destribuiton to stop the clock lane of D-PHY */
+
+    /* Disable the voltage requlator for D-PHY */
+
+    /* Disable D-PHY functions */
+
+    /* Disable PLL for CDSI */
+
+    /* Clear the interrupt statuses */
+
+    /* Release the Initialization signal for the PPI */
+
+    info->csi_state = CSI_STATE_STOP;
+}
+
+/**
+ * @brief Structure of CSI device driver ops
+ */
+struct camera_sensor cam_sensor = {
+    .cdsi_sensor_init = csi_reg_start,
 };
 
 /**
- * @brief thread routine of camera initialization function
- * @param p_data pointer of data that pass to thread routine
+ * @brief The CSI starting task for camera stream
+ *
+ * @param p_data Pointer to data for task process.
+ * @return None.
  */
-static void camera_fn(void *p_data)
+static void *csi_tx_thread(void *data)
 {
-    csi_initialize(&ov5645_sensor, TSB_CDSI1, TSB_CDSI_TX);
+    while (1) {
+        sem_wait(&info->csi_sem);
+        if (info->csi_cmd == CSI_CMD_START) {
+            csi_initialize(&cam_sensor, TSB_CDSI1, TSB_CDSI_TX);
+        } else {
+            csi_reg_stop(info->csi_dev);
+            csi_uninitialize(info->csi_dev);
+        }
+    }
+
+    return NULL;
 }
 
 /**
- * @brief camera initialization function
- * @return zero for success or non-zero on any faillure
+ * @brief The CSI stopping task for camera stream
+ *
+ * @param p_data Pointer to data for task process.
+ * @return None.
  */
-int camera_init(void)
+int csi_tx_stop(void)
 {
-    int taskid;
+    if (info->csi_state == CSI_STATE_START) {
+        info->csi_cmd = CSI_CMD_STOP;
+        sem_post(&info->csi_sem);
+    } else {
+        return -EINVAL;
+    }
+    return 0;
+}
 
-    taskid = task_create("csi_tx_worker", CSI_TX_PRIORITY, CSI_TX_STACK_SIZE,
-                         (main_t)camera_fn, NULL);
-    if (taskid == ERROR) {
-        return ERROR;
+/**
+ * @brief Start the CSI Tx for camera stream
+ *
+ * @param csi_ctrl Pointer to structure of CSI control settings.
+ * @return 0 on success, negative errno on error.
+ */
+int csi_tx_start(struct csi_control *csi_ctrl)
+{
+    if (info->csi_state == CSI_STATE_STOP) {
+        info->csi_cmd = CSI_CMD_START;
+        sem_post(&info->csi_sem);
+    } else {
+        return -EINVAL;
+    }
+    return 0;
+}
+
+/**
+ * @brief Stop the CSI TX for camera stream
+ *
+ * @return 0 on success, negative errno on error.
+ */
+int csi_tx_init(void)
+{
+    int ret;
+
+    info = zalloc(sizeof(*info));
+    if (info == NULL) {
+        return -ENOMEM;
     }
 
+    ret = sem_init(&info->csi_sem, 0, 0);
+    if (ret) {
+        lldbg("csi_tx create semapher failed \n");
+        ret = -ret;
+        goto err_free_mem;
+    }
+    
+    ret = pthread_create(&info->csi_thread, NULL, csi_tx_thread, info);
+    if  (ret) {
+        lldbg("csi_tx create thread failed \n");
+        ret = -ret;
+        goto err_destroy_sem;
+    }
+
+    info->csi_state = CSI_STATE_STOP;
+
     return 0;
+
+err_destroy_sem:
+    sem_destroy(&info->csi_sem);
+err_free_mem:
+    free(info);
+    
+    return ret;
 }

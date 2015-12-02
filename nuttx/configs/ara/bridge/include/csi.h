@@ -31,7 +31,35 @@
 #ifndef __OV_CSI_H__
 #define __OV_CSI_H__
 
-int camera_init(void);
+/**
+ * CSI control for camera stream start
+ */
+struct csi_control {
+    /** data type of the stream */
+    uint8_t data_type;
+    /** lane number for camera stream */
+    uint8_t lane_num;
+    /** frame size */
+    uint32_t word_count;
+};
+
+
+int csi_tx_init(void);
+
+/**
+ * @brief Start the CSI for camera stream
+ *
+ * @param csi_ctrl Pointer to structure of CSI control settings.
+ * @return 0 on success, negative errno on error.
+ */
+int csi_tx_start(struct csi_control *csi_ctrl);
+
+/**
+ * @brief Stop the CSI for camera stream
+ *
+ * @return 0 on success, negative errno on error.
+ */
+int csi_tx_stop(void);
 
 #endif /* __OV_CSI_H__ */
 
