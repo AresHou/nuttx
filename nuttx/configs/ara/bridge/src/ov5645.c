@@ -72,7 +72,6 @@
 
 /* OV5645 I2C address */
 #define OV5645_I2C_ADDR     0x3c
-
 #define OV5645_APB3_I2C0    0
 
 /*************************************************
@@ -85,9 +84,7 @@
  *************************************************/
 #define NOT_SUPPORT         0
 #define SUPPORT             1
-
 #define PADDING             0
-
 #define HI_BYTE             1
 #define LOW_BYTE            0
 #define OV5645_REG_END      0xffff
@@ -97,8 +94,6 @@
 
 #define FRAME_NUMBER        6
 #define STREAM              8
-
-#define VIRTUAL_CHANNEL     0
 
 /* Image sizes */
 /* VGA */
@@ -182,7 +177,6 @@ struct sensor_info {
     struct cdsi_dev *cdsidev;
     uint8_t current_mode;
     uint8_t new_mode;
-
 };
 
 static uint8_t req_id;
@@ -1161,73 +1155,71 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
     {
         printf("[%s]init mode... \n", __func__);
 
-        /* Do ov5645 init mode settings */
-
-        /* Start CDSIRX */
-        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
-
-        /* Wait Line Initialization finish */
-        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
-
-        /* setup sensor registers */
-        ret = data_write_array(cam_i2c, vals);
-        if (ret){
-            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
-            ret = -EIO;
-            return ret;
-        }
-
-        printf("[%s]Wait Line Initialization...\n", __func__);
-        while ((rdata1 &
-        CDSI0_CDSIRX_LPRX_STATE_INT_STAT_LINEINITDONE_MASK) == 0x0) {
-            rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
-            usleep(DELAY_10);
-        }
-        printf("[%s]Second LPRX_STATE_INT: %d\n", __func__, rdata1);
-
-        cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
-                   CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
-
-        cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS,
-                   CDSIRX_DSI_LPTX_MODE_VAL);
-
-        cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
-                   CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
-    }
-    else if (current_mode == new_mode)
-    {
-        printf("[%s]the same mode... \n", __func__);
-    }
-    else
-    {
-        printf("[%s]switch mode... \n", __func__);
-
-        /* Start CDSIRX */
-        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
-
-        /* Wait Line Initialization finish */
-        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
-
-        /* setup sensor registers */
-        ret = data_write_array(cam_i2c, vals);
-        if (ret){
-            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
-            ret = -EIO;
-            return ret;
-        }
-
-#if 0 //bsq test +
-        /* Start stream */
-        ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_on);
+        /* Stop stream */
+        ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_off);
         if (ret) {
             ret = -EIO;
             return ret;
         }
         usleep(DELAY_10);
-#endif //bsq test -
 
+        /* Start CDSIRX */
+        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
+
+        /* Wait Line Initialization finish */
+        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+
+        /* setup sensor registers */
+        ret = data_write_array(cam_i2c, vals);
+        if (ret) {
+            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
+            ret = -EIO;
+            return ret;
+        }
+    } else if (current_mode == new_mode) {
+        printf("[%s]the same mode... \n", __func__);
+        return ret;
+    } else {
+        printf("[%s]switch mode... \n", __func__);
+
+        /* Stop stream */
+        ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_off);
+        if (ret) {
+            ret = -EIO;
+            return ret;
+        }
+        usleep(DELAY_10);
+
+        /* Start CDSIRX */
+        cdsi_write(cdsidev, CDSI0_CDSIRX_START_OFFS, CDSI0_CDSIRX_START_VAL);
+
+        /* Wait Line Initialization finish */
+        rdata1 = cdsi_read(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS);
+
+        /* setup sensor registers */
+        ret = data_write_array(cam_i2c, vals);
+        if (ret) {
+            printf("[%s]ERROR! Fails to fill sensor registers.\n", __func__);
+            ret = -EIO;
+            return ret;
+        }
+        /* update current mode */
+        current_mode = new_mode;
+    }
+
+    /* Start stream */
+    ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_on);
+    if (ret) {
+        ret = -EIO;
+        return ret;
+    }
+    usleep(DELAY_10);
+
+    if ((current_mode == ov5645_init_mode_SXGA_1280_960) &&
+       (new_mode == ov5645_init_mode_SXGA_1280_960))
+   {
         printf("[%s]Wait Line Initialization...\n", __func__);
-#if 0
+
         while ((rdata1 & CDSI0_CDSIRX_LPRX_STATE_INT_STAT_LINEINITDONE_MASK)
                == 0x0)
         {
@@ -1235,21 +1227,19 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
             usleep(DELAY_10);
         }
         printf("[%s]Second LPRX_STATE_INT: %d\n", __func__, rdata1);
-#endif
-        cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
-                   CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
-
-        cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS,
-                   CDSIRX_DSI_LPTX_MODE_VAL);
-
-        cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
-                   CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
-
-        /* update current mode */
-        current_mode = new_mode;
     }
 
+    cdsi_write(cdsidev, CDSI0_CDSIRX_LPRX_STATE_INT_STAT_OFFS,
+               CDSI0_CDSIRX_LPRX_STATE_INT_STAT_VAL);
+
+    cdsi_write(cdsidev, CDSI0_CDSIRX_DSI_LPTX_MODE_OFFS,
+               CDSIRX_DSI_LPTX_MODE_VAL);
+
+    cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
+               CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
+
     printf("[%s]-\n", __func__);
+
     return ret;
 }
 
@@ -1468,6 +1458,9 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
             if (!set_mode(info->cdsidev, ov5645_mode_settings[i].regs,
                  info->cam_i2c, info->current_mode, info->new_mode)) {
                 *flags = SUPPORT;
+
+                /* update current mode */
+                info->current_mode = info->new_mode;
                 break;
             } else {
                 /*
@@ -1601,7 +1594,7 @@ static int ov5645_dev_open(struct device *dev)
     if(info->state == OV5645_STATE_OPEN) {
         return -EBUSY;
     }
-
+    printf("[%s]1\n",__func__);
     /* === get support modes === */
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
@@ -1613,16 +1606,16 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_support;
     }
-    
-    /* === power on ov5645 sensor and get sensor ID === */
+    printf("[%s]2\n",__func__);
 
+    /* === power on ov5645 sensor and get sensor ID === */
     /* power on sensor */
     ret = op_power_up(info->dev);
     if (ret) {
         ret = -EIO;
         goto err_free_support;
     }
-
+    printf("[%s]3\n",__func__);
     /* initialize I2C */
     info->cam_i2c = NULL;
     info->cam_i2c = up_i2cinitialize(OV5645_APB3_I2C0);
@@ -1630,28 +1623,30 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EIO;
         goto err_power_down;
     }
+    printf("[%s]4\n",__func__);
 
     /* get sensor id (high) */
     ret = data_read(info->cam_i2c, OV5645_ID_HIGH, &id[HI_BYTE]);
     if (ret){
         goto err_free_i2c;
     }
-
+    printf("[%s]5\n",__func__);
     if (id[HI_BYTE] != OV5645_ID_H) {
         ret = -ENODEV;
         goto err_free_i2c;
     }
-
+    printf("[%s]6\n",__func__);
     /* get sensor id (low) */
     ret = data_read(info->cam_i2c, OV5645_ID_LOW, &id[LOW_BYTE]);
     if (ret) {
         goto err_free_i2c;
     }
-
+    printf("[%s]7\n",__func__);
     if (id[LOW_BYTE] != OV5645_ID_L){
         ret = -ENODEV;
         goto err_free_i2c;
     }
+    printf("[%s]8\n",__func__);
 
     printf("[%s]Sensor ID : 0x%04X\n", __func__, (id[1] << 8) | id[0]);
 
@@ -1664,16 +1659,18 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_i2c;
     }
+    printf("[%s]9\n",__func__);
 
     info->cdsidev = init_csi_rx(CDSI0, CDSI_RX);
     if (info->cdsidev == NULL) {
         ret = -EINVAL;
         goto err_free_cdsi;
-    }    
+    }
+    printf("[%s]10\n",__func__);
 
     /* Execute CSI-2 RX start sequence */
     mipi_csi2_start(info->cdsidev);
-    
+
     /* get virtual channel */
     info->cdsidev->v_channel = mipi_csi2_get_virtual_channel(info->cdsidev);
 
@@ -1689,6 +1686,7 @@ static int ov5645_dev_open(struct device *dev)
     if (ret) {
         goto err_free_cdsi;
     }
+    printf("[%s]11\n",__func__);
 
     /* set data type */
     mipi_csi2_set_datatype(info->cdsidev, ov5645_datatype);
@@ -1716,6 +1714,7 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EINVAL;
         goto err_free_cdsi;
     }
+    printf("[%s]12\n",__func__);
 
     /* === initialize meta data === */
     info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct metadata_info));
@@ -1772,11 +1771,9 @@ static void ov5645_dev_close(struct device *dev)
 
     info = device_get_private(dev);
 
-#if 0
     /* Stop stream */
     data_write(info->cam_i2c, REG_STREAM_ONOFF, stream_off);
     usleep(DELAY_10);
-#endif
 
     mipi_csi2_stop(info->cdsidev);
 
@@ -1784,11 +1781,11 @@ static void ov5645_dev_close(struct device *dev)
     deinit_csi_rx(info->cdsidev);
 
     /* free all of the resources */
+    free(info->mdata_info);
     free(info->cdsidev);
     up_i2cuninitialize(info->cam_i2c);
     op_power_down(dev);
-    free(info->mdata_info);
-    free(info->str_cfg_sup); 
+    free(info->str_cfg_sup);
 
     info->state = OV5645_STATE_CLOSED;
 
