@@ -25,7 +25,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,7 +44,7 @@
 struct cdsi_dev *init_csi_rx(int cdsi, int tx)
 {
     struct cdsi_dev *cdsidev;
-    
+
     printf("[%s]+\n",__func__);
 
     cdsidev = cdsi_initialize(cdsi, tx);
@@ -56,7 +56,6 @@ struct cdsi_dev *init_csi_rx(int cdsi, int tx)
 #if 1 //For debugging
     printf("[%s]cdsidev: 0x%x\n",__func__, cdsidev);
     printf("[%s]cdsidev->base: 0x%x\n",__func__, cdsidev->base);
-
     printf("[%s]tx: %d\n",__func__, tx);
     printf("[%s]cdsi: 0x%x\n",__func__, cdsi);
 #endif
@@ -68,6 +67,8 @@ struct cdsi_dev *init_csi_rx(int cdsi, int tx)
 
 void deinit_csi_rx(struct cdsi_dev *dev)
 {
+    printf("[%s]+\n",__func__);
+
 #if 1 //For debugging
     printf("[%s]cdsidev: 0x%x\n",__func__, dev);
     printf("[%s]cdsidev->base: 0x%x\n",__func__, dev->base);
@@ -75,13 +76,13 @@ void deinit_csi_rx(struct cdsi_dev *dev)
 #endif
 
     cdsi_uninitialize(dev);
+    printf("[%s]-\n",__func__);
+
 }
 
 
 int mipi_csi2_start(struct cdsi_dev *cdsidev)
 {
-    uint32_t rdata0;
-
     /* Enable the Rx bridge and set to CSI mode */
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS, AL_RX_BRG_MODE_VAL);
     cdsi_write(cdsidev, CDSI0_AL_RX_BRG_CSI_INFO_OFFS, AL_RX_BRG_CSI_INFO_VAL);
@@ -201,7 +202,6 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     printf("[%s] lane_status_hs = 0x%08x \n", __func__, lane_status_hs);
     while (lane_status_hs != HS_LANE_STATUS) {
         lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
-        usleep(CSI2_DELAY_10);
     }
 
     /* Check Lane status - LP */
@@ -210,7 +210,6 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     while (lane_status_lp != LP_LANE_STATUS) {
         lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     }
-
 
     /* Check CDSIRX Internal state. */
     internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
@@ -235,9 +234,8 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
 
     usleep(CSI2_DELAY_10);
 
-    printf("[%s] Check RX Bridge Status...\n", __func__);
-
 #if 0
+    printf("[%s] Check RX Bridge Status...\n", __func__);
     /* Check RX Bridge Status - Check the internal state is no busy */
     rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
     while (rdata3 != 0x0) {

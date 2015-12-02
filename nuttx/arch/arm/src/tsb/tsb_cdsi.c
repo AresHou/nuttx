@@ -116,7 +116,6 @@ void cdsi_uninitialize(struct cdsi_dev *dev)
             tsb_clk_disable(TSB_CLK_CDSI1_RX_APB);
         }
     }
-    free(dev);
 }
 
 /**
