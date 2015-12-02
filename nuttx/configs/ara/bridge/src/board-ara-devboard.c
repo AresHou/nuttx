@@ -240,7 +240,7 @@ static void board_display_init(void)
 static void board_camera_init(void)
 {
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
-    camera_init();
+    /* camera_init(); */
 #endif
 }
 

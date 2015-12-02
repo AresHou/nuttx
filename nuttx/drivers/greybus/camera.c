@@ -79,6 +79,8 @@ static uint8_t gb_camera_protocol_version(struct gb_operation *operation)
 {
     struct gb_camera_version_response *response;
 
+    lldbg("gb_camera_protocol_version() + \n");
+
     response = gb_operation_alloc_response(operation, sizeof(*response));
     if (!response) {
         return GB_OP_NO_MEMORY;
@@ -86,6 +88,8 @@ static uint8_t gb_camera_protocol_version(struct gb_operation *operation)
 
     response->major = GB_CAMERA_VERSION_MAJOR;
     response->minor = GB_CAMERA_VERSION_MINOR;
+
+    lldbg("gb_camera_protocol_version() - \n");
 
     return GB_OP_SUCCESS;
 }
@@ -106,7 +110,10 @@ static uint8_t gb_camera_capabilities(struct gb_operation *operation)
     uint16_t size;
     int ret;
 
+    lldbg("gb_camera_capabilities() + \n");
+
     if (info->state != STATE_CONNECTED) {
+        lldbg("state error %d \n", info->state);
         return GB_OP_INVALID;
     }
 
@@ -128,6 +135,8 @@ static uint8_t gb_camera_capabilities(struct gb_operation *operation)
 
     response->size = cpu_to_le16(size);
     memcpy(response->capabilities, &capabilities, size);
+
+    lldbg("gb_camera_capabilities() - \n");
 
     return GB_OP_SUCCESS;
 }
@@ -153,8 +162,10 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
     uint16_t flags;
     int i, ret;
 
+    lldbg("gb_camera_configure_streams() + \n");
+
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
-        gb_error("dropping short message\n");
+        gb_error("dropping short message \n");
         return GB_OP_INVALID;
     }
 
@@ -179,14 +190,23 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
         if (!cfg_request) {
             return GB_OP_NO_MEMORY;
         }
-
+        
+        lldbg("num_streams = %d \n", num_streams);
+        
         /* todo: check is there performance issue on below conversion*/
         /* convert data for driver */
         for (i = 0; i < num_streams; i++) {
+            lldbg("\n");
+            
             cfg_request[i].width = le16_to_cpu(cfg_set_req[i].width);
             cfg_request[i].height = le16_to_cpu(cfg_set_req[i].height);
             cfg_request[i].format = le16_to_cpu(cfg_set_req[i].format);
             cfg_request[i].padding = le16_to_cpu(cfg_set_req[i].padding);
+
+            lldbg("    width = %d \n", cfg_request[i].width);
+            lldbg("    height = %d \n", cfg_request[i].height);
+            lldbg("    format = %d \n", cfg_request[i].format);
+            lldbg("    padding = %d \n", cfg_request[i].padding);
         }
 
         /* alloc for getting answer from driver */
@@ -232,8 +252,18 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
                                   num_streams * sizeof(*cfg_ans_resp));
         response->num_streams = cpu_to_le16(num_streams);
         response->flags = flags;
+        lldbg("Resp: \n");
+        lldbg("flags = 0x%2x: \n", response->flags);
         cfg_ans_resp = response->config;
         for (i = 0; i < num_streams; i++) {
+            lldbg("\n");
+            lldbg("    width = %d \n", cfg_answer[i].width);
+            lldbg("    height = %d \n", cfg_answer[i].height);
+            lldbg("    format = %d \n", cfg_answer[i].format);
+            lldbg("    virtual_channel = %d \n", cfg_answer[i].virtual_channel);
+            lldbg("    data_type = %d \n", cfg_answer[i].data_type);
+            lldbg("    max_size = %d \n", cfg_answer[i].max_size);
+            
             cfg_ans_resp[i].width = cpu_to_le16(cfg_answer[i].width);
             cfg_ans_resp[i].height = cpu_to_le16(cfg_answer[i].height);
             cfg_ans_resp[i].format = cpu_to_le16(cfg_answer[i].format);
@@ -260,6 +290,8 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
         }
     }
 
+    lldbg("gb_camera_configure_streams() - \n");
+
     /* send back the response to host by return */
     return GB_OP_SUCCESS;
 
@@ -284,6 +316,8 @@ static uint8_t gb_camera_capture(struct gb_operation *operation)
     struct capture_info *capt_req;
     int ret;
 
+    lldbg("gb_camera_capture() + \n");
+
     if (info->state != STATE_CONFIGURED && info->state != STATE_STREAMING) {
         return GB_OP_INVALID;
     }
@@ -305,6 +339,11 @@ static uint8_t gb_camera_capture(struct gb_operation *operation)
     capt_req->padding = request->padding;
     capt_req->num_frames = le32_to_cpu(request->num_frames);
 
+    lldbg("    request_id = %d \n", capt_req->request_id);
+    lldbg("    streams = %d \n", capt_req->streams);
+    lldbg("    padding = %d \n", capt_req->padding);
+    lldbg("    num_frames = %d \n", capt_req->num_frames);
+
     ret = device_camera_capture(info->dev, capt_req);
     if (ret) {
         gb_error("error in camera capture thread. \n");
@@ -313,6 +352,8 @@ static uint8_t gb_camera_capture(struct gb_operation *operation)
     }
 
     free(capt_req);
+
+    lldbg("gb_camera_capture() - \n");
 
     return GB_OP_SUCCESS;
 
@@ -335,6 +376,8 @@ static uint8_t gb_camera_flush(struct gb_operation *operation)
     uint32_t request_id = 0;
     int ret;
 
+    lldbg("gb_camera_flush() + \n");
+
     if (info->state != STATE_STREAMING && info->state != STATE_CONNECTED) {
         return GB_OP_INVALID;
     }
@@ -350,6 +393,9 @@ static uint8_t gb_camera_flush(struct gb_operation *operation)
     }
 
     response->request_id = cpu_to_le32(request_id);
+    lldbg("    request_id = %d + \n", request_id);
+    
+    lldbg("gb_camera_flush() + \n");
 
     return GB_OP_SUCCESS;
 }
@@ -369,6 +415,8 @@ static uint8_t gb_camera_metadata(struct gb_operation *operation)
     struct metadata_info meta_data;
     int ret;
 
+    lldbg("gb_camera_metadata() + \n");
+
     if (gb_operation_get_request_payload_size(operation) < sizeof(*request)) {
         gb_error("dropping short message\n");
         return GB_OP_INVALID;
@@ -382,10 +430,16 @@ static uint8_t gb_camera_metadata(struct gb_operation *operation)
     meta_data.padding = request->padding;
     meta_data.data = request->data;
 
+    lldbg("    request_id = %d \n", request->request_id);
+    lldbg("    frame_number = %d \n", request->frame_number);
+    lldbg("    stream = %d \n", request->stream);
+
     ret = device_camera_trans_metadata(info->dev, &meta_data);
     if (ret) {
         return gb_errno_to_op_result(ret);
     }
+
+    lldbg("gb_camera_metadata() - \n");
 
     return GB_OP_SUCCESS;
 }
@@ -403,6 +457,8 @@ static int gb_camera_init(unsigned int cport)
 {
     int ret;
 
+    lldbg("gb_camera_init + \n");
+    
     info = zalloc(sizeof(*info));
     if (info == NULL) {
         return -ENOMEM;
@@ -420,6 +476,8 @@ static int gb_camera_init(unsigned int cport)
 
     info->state = STATE_CONNECTED; /* STATE_UNCONFIGURED ? */
 
+    lldbg("gb_camera_init - \n");
+    
     return 0;
 
 err_free_info:
