@@ -1594,7 +1594,6 @@ static int ov5645_dev_open(struct device *dev)
     if(info->state == OV5645_STATE_OPEN) {
         return -EBUSY;
     }
-    printf("[%s]1\n",__func__);
     /* === get support modes === */
     info->str_cfg_sup = zalloc(N_WIN_SIZES * sizeof(struct streams_cfg_req));
     if (info->str_cfg_sup == NULL) {
@@ -1606,7 +1605,6 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_support;
     }
-    printf("[%s]2\n",__func__);
 
     /* === power on ov5645 sensor and get sensor ID === */
     /* power on sensor */
@@ -1615,7 +1613,6 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EIO;
         goto err_free_support;
     }
-    printf("[%s]3\n",__func__);
     /* initialize I2C */
     info->cam_i2c = NULL;
     info->cam_i2c = up_i2cinitialize(OV5645_APB3_I2C0);
@@ -1623,30 +1620,25 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EIO;
         goto err_power_down;
     }
-    printf("[%s]4\n",__func__);
 
     /* get sensor id (high) */
     ret = data_read(info->cam_i2c, OV5645_ID_HIGH, &id[HI_BYTE]);
     if (ret){
         goto err_free_i2c;
     }
-    printf("[%s]5\n",__func__);
     if (id[HI_BYTE] != OV5645_ID_H) {
         ret = -ENODEV;
         goto err_free_i2c;
     }
-    printf("[%s]6\n",__func__);
     /* get sensor id (low) */
     ret = data_read(info->cam_i2c, OV5645_ID_LOW, &id[LOW_BYTE]);
     if (ret) {
         goto err_free_i2c;
     }
-    printf("[%s]7\n",__func__);
     if (id[LOW_BYTE] != OV5645_ID_L){
         ret = -ENODEV;
         goto err_free_i2c;
     }
-    printf("[%s]8\n",__func__);
 
     printf("[%s]Sensor ID : 0x%04X\n", __func__, (id[1] << 8) | id[0]);
 
@@ -1659,14 +1651,12 @@ static int ov5645_dev_open(struct device *dev)
         ret = -ENOMEM;
         goto err_free_i2c;
     }
-    printf("[%s]9\n",__func__);
 
     info->cdsidev = init_csi_rx(CDSI0, CDSI_RX);
     if (info->cdsidev == NULL) {
         ret = -EINVAL;
         goto err_free_cdsi;
     }
-    printf("[%s]10\n",__func__);
 
     /* Execute CSI-2 RX start sequence */
     mipi_csi2_start(info->cdsidev);
@@ -1686,7 +1676,6 @@ static int ov5645_dev_open(struct device *dev)
     if (ret) {
         goto err_free_cdsi;
     }
-    printf("[%s]11\n",__func__);
 
     /* set data type */
     mipi_csi2_set_datatype(info->cdsidev, ov5645_datatype);
@@ -1714,7 +1703,6 @@ static int ov5645_dev_open(struct device *dev)
         ret = -EINVAL;
         goto err_free_cdsi;
     }
-    printf("[%s]12\n",__func__);
 
     /* === initialize meta data === */
     info->mdata_info = zalloc(MATA_DATA_SIZE * sizeof(struct metadata_info));
