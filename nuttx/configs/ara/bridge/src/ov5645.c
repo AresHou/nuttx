@@ -1205,13 +1205,15 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
         current_mode = new_mode;
     }
 
-    /* Start stream */
-    ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_on);
-    if (ret) {
-        ret = -EIO;
-        return ret;
-    }
-    usleep(DELAY_10);
+#if 1
+        /* Stop stream */
+        ret = data_write(cam_i2c, REG_STREAM_ONOFF, stream_off);
+        if (ret) {
+            ret = -EIO;
+            return ret;
+        }
+        usleep(DELAY_10);
+#endif
 
     if ((current_mode == ov5645_init_mode_SXGA_1280_960) &&
        (new_mode == ov5645_init_mode_SXGA_1280_960))

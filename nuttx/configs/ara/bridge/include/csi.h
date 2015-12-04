@@ -31,25 +31,31 @@
 #ifndef __OV_CSI_H__
 #define __OV_CSI_H__
 
-int camera_init(void);
-
 /**
  * CSI control for camera stream start
  */
 struct csi_control {
-    /** data type of the stream */
-    uint8_t data_type;
+    /** cdsi control id */
+    uint8_t csi_id;
+    /** clocking mode for continuous or non-continuous */
+    uint8_t clock_mode;
     /** lane number for camera stream */
     uint8_t lane_num;
-    /** frame size */
-    uint32_t word_count;
+    /** reserve */
+    uint8_t padding;
+    /** csi frequence */
+    uint32_t bus_freq;
 };
 
-
+/**
+ * @brief APB-A csi control initial process
+ *
+ * @return 0 on success, negative errno on error.
+ */
 int csi_tx_init(void);
 
 /**
- * @brief Start the CSI for camera stream
+ * @brief Start the CSI for data streaming
  *
  * @param csi_ctrl Pointer to structure of CSI control settings.
  * @return 0 on success, negative errno on error.
@@ -57,11 +63,15 @@ int csi_tx_init(void);
 int csi_tx_start(struct csi_control *csi_ctrl);
 
 /**
- * @brief Stop the CSI for camera stream
+ * @brief Stop the CSI for data streaming
  *
  * @return 0 on success, negative errno on error.
  */
 int csi_tx_stop(void);
+
+
+int camera_init(void);
+
 
 #endif /* __OV_CSI_H__ */
 

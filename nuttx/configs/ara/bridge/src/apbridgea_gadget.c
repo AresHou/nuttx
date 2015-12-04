@@ -161,8 +161,8 @@
 #define APBRIDGE_ROREQUEST_LATENCY_TAG_DIS      (0x07)
 
 /* Camera CSI control requests */
-#define APBRIDGE_CAMERA_CSI_START   (0x10)
-#define APBRIDGE_CAMERA_CSI_STOP    (0x11)
+#define APBRIDGE_CSI_TX_START   (0x10)
+#define APBRIDGE_CSI_TX_STOP    (0x11)
 
 #define TIMEOUT_IN_MS           300
 #define ONE_SEC_IN_MSEC         1000
@@ -1421,6 +1421,7 @@ static int usbclass_setup(struct usbdevclass_driver_s *driver,
         /* Put here vendor request */
     case USB_REQ_TYPE_VENDOR:
         {
+            lldbg("get vendor request \n");
             if ((ctrl->type & USB_REQ_RECIPIENT_MASK) ==
                 USB_REQ_RECIPIENT_INTERFACE) {
                 if (ctrl->req == APBRIDGE_RWREQUEST_LOG) {
@@ -1479,22 +1480,29 @@ static int usbclass_setup(struct usbdevclass_driver_s *driver,
                             lldbg("disable tagging for cportid %d\n", value);
                         }
                     }
-                } else if (ctrl->req == APBRIDGE_CAMERA_CSI_START) {
+                } else if (ctrl->req == APBRIDGE_CSI_TX_START) {
                     struct csi_control *host_ctrl;
                     struct csi_control target;
 					lldbg("apbridge camera csi start +\n");
                     ret = -EINVAL;
-                    if (!(ctrl->type & USB_DIR_IN)) {
+                    //if (ctrl->type & USB_DIR_IN) {
 						lldbg(" csi_tx +\n");
                         host_ctrl = (struct csi_control *) req->buf;
-                        target.data_type = host_ctrl->data_type;
+                        target.csi_id = host_ctrl->csi_id;
+                        target.clock_mode = host_ctrl->clock_mode;
                         target.lane_num = host_ctrl->lane_num;
-                        target.word_count = le32_to_cpu(host_ctrl->word_count);
+                        target.bus_freq = le32_to_cpu(host_ctrl->bus_freq);
+
+                        lldbg("csi_tx = %d \n", target.csi_id);
+                        lldbg("clock_mode = %d \n", target.clock_mode);
+                        lldbg("lane_num = %d \n", target.lane_num);
+                        lldbg("bus_freq = %d \n", target.bus_freq);
+                        
                         ret = csi_tx_start(&target);
 						lldbg(" csi_tx -\n");
-                    }
+                    //}
 					lldbg(" csi start -\n");
-                } else if (ctrl->req == APBRIDGE_CAMERA_CSI_STOP) {
+                } else if (ctrl->req == APBRIDGE_CSI_TX_STOP) {
 					lldbg(" csi_tx stop +\n");
                     ret = -EINVAL;
                     if (!(ctrl->type & USB_DIR_IN)) {

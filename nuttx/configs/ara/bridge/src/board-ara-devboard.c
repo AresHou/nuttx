@@ -240,9 +240,8 @@ static void board_display_init(void)
 static void board_camera_init(void)
 {
 #ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
-#ifdef CONFIG_APB_CAMERA
+    // alexlo
     camera_init();
-#endif
 #endif
 }
 

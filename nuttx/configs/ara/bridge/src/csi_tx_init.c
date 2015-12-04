@@ -464,6 +464,7 @@ static void csi_reg_start(struct cdsi_dev *dev)
     cdsi_write(dev, CDSI0_AL_RX_BRG_CSI_DT0_OFFS, CDSI0_AL_RX_BRG_CSI_DT0_VAL);
 
     info->csi_state = CSI_STATE_START;
+    printf("csi_reg_start - \n");
 }
 
 /**
@@ -517,6 +518,7 @@ static void csi_reg_stop(struct cdsi_dev *dev)
     /* Release the Initialization signal for the PPI */
 
     info->csi_state = CSI_STATE_STOP;
+    printf("csi_reg_stop - \n");
 }
 
 /**
@@ -527,9 +529,9 @@ struct camera_sensor cam_sensor = {
 };
 
 /**
- * @brief The CSI starting task for camera stream
+ * @brief The CSI control thread
  *
- * @param p_data Pointer to data for task process.
+ * @param p_data Pointer to data for thread process.
  * @return None.
  */
 static void *csi_tx_thread(void *data)
@@ -548,10 +550,9 @@ static void *csi_tx_thread(void *data)
 }
 
 /**
- * @brief The CSI stopping task for camera stream
+ * @brief The CSI stopping task for data streaming
  *
- * @param p_data Pointer to data for task process.
- * @return None.
+ * @return 0 on success, negative errno on error.
  */
 int csi_tx_stop(void)
 {
@@ -567,12 +568,18 @@ int csi_tx_stop(void)
 /**
  * @brief Start the CSI Tx for camera stream
  *
- * @param csi_ctrl Pointer to structure of CSI control settings.
+ * @param csi_ctrl Pointer to structure of CSI control parameters.
  * @return 0 on success, negative errno on error.
  */
 int csi_tx_start(struct csi_control *csi_ctrl)
 {
     if (info->csi_state == CSI_STATE_STOP) {
+        /* copy parameters to internal space */
+        info->csi_ctrl.csi_id = csi_ctrl->csi_id;
+        info->csi_ctrl.clock_mode = csi_ctrl->clock_mode;
+        info->csi_ctrl.lane_num = csi_ctrl->lane_num;
+        info->csi_ctrl.bus_freq = csi_ctrl->bus_freq;
+        /* signal thread to start */
         info->csi_cmd = CSI_CMD_START;
         sem_post(&info->csi_sem);
     } else {
@@ -582,15 +589,13 @@ int csi_tx_start(struct csi_control *csi_ctrl)
 }
 
 /**
- * @brief Stop the CSI TX for camera stream
+ * @brief Start the CSI control thread for coming request
  *
  * @return 0 on success, negative errno on error.
  */
 int csi_tx_init(void)
 {
     int ret;
-
-    lldbg("CSI-2 Tx initialization \n");
 
     info = zalloc(sizeof(*info));
     if (info == NULL) {
@@ -622,3 +627,304 @@ err_free_mem:
     
     return ret;
 }
+
+/**
+ * @brief cdsi_sensor_init callback function of ov5645 camera_sensor
+ * @param dev dev pointer to structure of cdsi_dev device data
+ * @return void function without return value
+ */
+void ov5645_csi_init(struct cdsi_dev *dev)
+{
+    uint32_t rdata;
+
+    printf("ov5645_csi_init callback function for CSI-2 tx\n");
+
+    /* Set to Tx mode for CDSI */
+    cdsi_write(dev, CDSI0_AL_TX_BRG_CDSITX_MODE_OFFS,
+               AL_TX_BRG_CDSITX_MODE_VAL);
+
+#if defined(CONFIG_TSB_CHIP_REV_ES2)
+    cdsi_write(dev, CDSI0_AL_TX_BRG_SOFT_RESET_OFFS,
+               CDSI0_AL_TX_BRG_ENABLE_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_SYSCLK_ENABLE_OFFS,
+               CDSI0_AL_TX_BRG_ENABLE_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_ENABLE_OFFS, CDSI0_AL_TX_BRG_ENABLE_VAL);
+#endif
+
+    /* Tx bridge setting */
+    cdsi_write(dev, CDSI0_AL_TX_BRG_MODE_OFFS, AL_TX_BRG_MODE_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_SET_OFFS,
+               AL_TX_BRG_PIC_COM_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_VDELAYSTRCOUNT_OFFS,
+               AL_TX_BRG_PIC_COM_VDELAYSTRCOUNT_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_VDELAYENDCOUNT_OFFS,
+               AL_TX_BRG_PIC_COM_VDELAYENDCOUNT_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_MAXFCNT_OFFS,
+               AL_TX_BRG_PIC_COM_MAXFCNT_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_SYN_SET_OFFS,
+               AL_TX_BRG_PIC_SYN_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_SYN_LINE_OFFS,
+               AL_TX_BRG_PIC_SYN_LINE_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_3DCM_PLDT_OFFS,
+               AL_TX_BRG_PIC_COM_3DCM_PLDT_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_3DCM_LINE_OFFS,
+               AL_TX_BRG_PIC_COM_3DCM_LINE_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_WAIT_CYCLE_SET_OFFS,
+               AL_TX_BRG_WAIT_CYCLE_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_VSYNC_LINE_SET_OFFS,
+               AL_TX_BRG_VSYNC_LINE_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_TYPE_SEL1_SET_OFFS,
+               AL_TX_BRG_TYPE_SEL1_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_TYPE_SEL2_SET_OFFS,
+               AL_TX_BRG_TYPE_SEL2_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_TYPE_MASK1_SET_OFFS,
+               AL_TX_BRG_TYPE_MASK1_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_TYPE_MASK2_SET_OFFS,
+               AL_TX_BRG_TYPE_MASK2_SET_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_STATUS_ENABLE_OFFS,
+               AL_TX_BRG_STATUS_ENABLE_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_UNIPRO_BYTESWAP_OFFS,
+               AL_TX_BRG_UNIPRO_BYTESWAP_VAL);
+
+    /* Tx bridge enable */
+    cdsi_write(dev, CDSI0_AL_TX_BRG_MODE_OFFS, 0x00000093);
+
+    /* CDSITX setting */
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_FUNC_ENABLE_00_OFFS,
+               CDSITX_INTERRUPT_FUNC_ENABLE_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_FUNC_ENABLE_01_OFFS,
+               CDSITX_INTERRUPT_FUNC_ENABLE_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_FUNC_ENABLE_02_OFFS,
+               CDSITX_INTERRUPT_FUNC_ENABLE_02_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_FUNC_ENABLE_03_OFFS,
+               CDSITX_INTERRUPT_FUNC_ENABLE_03_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_POWER_SW_OFFS, CDSITX_POWER_SW_VAL);
+    /* D-PHY reset deassertion */
+    cdsi_write(dev, CDSI0_CDSITX_DPHY_RESET_OFFS, CDSITX_DPHY_RESET_VAL);
+
+    /* D-PHY PLL setting */
+    cdsi_write(dev, CDSI0_CDSITX_PLL_CONFIG_00_OFFS, CDSITX_PLL_CONFIG_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_PLL_CONFIG_02_OFFS, CDSITX_PLL_CONFIG_02_VAL);
+    /* D-PHY PLL enable */
+    cdsi_write(dev, CDSI0_CDSITX_PLL_CONTROL_00_OFFS,
+               CDSITX_PLL_CONTROL_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_PLL_CONTROL_01_OFFS,
+               CDSITX_PLL_CONTROL_01_VAL);
+
+    /* CDSITX setting */
+    cdsi_write(dev, CDSI0_CDSITX_LANE_ENABLE_00_OFFS,
+               CDSITX_LANE_ENABLE_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_LANE_ENABLE_01_OFFS,
+               CDSITX_LANE_ENABLE_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_LANE_ENABLE_02_OFFS,
+               CDSITX_LANE_ENABLE_02_VAL);
+
+    /* D-PHY Vreg setting */
+    cdsi_write(dev, CDSI0_CDSITX_VREG_CONFIG_OFFS, CDSITX_VREG_CONFIG_VAL);
+    /* D-PHY Vreg enable */
+    cdsi_write(dev, CDSI0_CDSITX_VREG_CONTROL_OFFS, CDSITX_VREG_CONTROL_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_LPRX_CALIB_CONFIG_OFFS,
+               CDSI0_CDSITX_LPRX_CALIB_CONFIG_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_LPRX_CALIB_CONTROL_OFFS,
+               CDSI0_CDSITX_LPRX_CALIB_CONTROL_VAL);
+
+    /* CDSITX setting */
+    cdsi_write(dev, CDSI0_CDSITX_CSI2DSI_SELECT_OFFS,
+               CDSITX_CSI2DSI_SELECT_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_00_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_01_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_02_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_02_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_03_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_03_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_04_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_04_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_05_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_05_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_06_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_06_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_07_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_07_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_08_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_08_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_09_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_09_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_GLOBAL_TIMING_PARAM_10_OFFS,
+               CDSITX_GLOBAL_TIMING_PARAM_10_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_00_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_01_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_02_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_02_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_03_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_03_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_04_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_04_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_05_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_05_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_06_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_06_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_07_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_07_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_08_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_08_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_09_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_09_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_10_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_10_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_COUNT_CONFIG_11_OFFS,
+               CDSITX_SIDEBAND_COUNT_CONFIG_11_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_00_OFFS,
+               CDSITX_SIDEBAND_CONFIG_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_01_OFFS,
+               CDSITX_SIDEBAND_CONFIG_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_02_OFFS,
+               CDSITX_SIDEBAND_CONFIG_02_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_03_OFFS,
+               CDSITX_SIDEBAND_CONFIG_03_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_04_OFFS,
+               CDSITX_SIDEBAND_CONFIG_04_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_05_OFFS,
+               CDSITX_SIDEBAND_CONFIG_05_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_06_OFFS,
+               CDSITX_SIDEBAND_CONFIG_06_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_07_OFFS,
+               CDSITX_SIDEBAND_CONFIG_07_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_08_OFFS,
+               CDSITX_SIDEBAND_CONFIG_08_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_09_OFFS,
+               CDSITX_SIDEBAND_CONFIG_09_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_10_OFFS,
+               CDSITX_SIDEBAND_CONFIG_10_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_11_OFFS,
+               CDSITX_SIDEBAND_CONFIG_11_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_12_OFFS,
+               CDSITX_SIDEBAND_CONFIG_12_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_13_OFFS,
+               CDSITX_SIDEBAND_CONFIG_13_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_14_OFFS,
+               CDSITX_SIDEBAND_CONFIG_14_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_CONFIG_15_OFFS,
+               CDSITX_SIDEBAND_CONFIG_15_VAL);
+
+    rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_MASK_00_OFFS);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_MASK_00_OFFS, rdata & 0xFFFFFFF7);
+
+    /* Wait PLL lockup time */
+    rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS);
+    while((rdata &
+           CDSI0_CDSITX_INTERRUPT_STATUS_00_INT_DPHY_LOCKUPDONE_MASK) == 0x0) {
+        rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS);
+    }
+
+    /* Wait D-PHY Vreg startup */
+    while((rdata &
+           CDSI0_CDSITX_INTERRUPT_STATUS_00_INT_DPHY_HSTXVREGRDY_MASK) == 0x0) {
+        rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS);
+    }
+
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS, 0x0000000A);
+
+    cdsi_write(dev, CDSI0_CDSITX_PISO_ENABLE_OFFS, CDSITX_PISO_ENABLE_VAL);
+    /* CDSITX setting */
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_INIT_CONTROL_00_OFFS,
+               CDSITX_SIDEBAND_INIT_CONTROL_00_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_INIT_CONTROL_01_OFFS,
+               CDSITX_SIDEBAND_INIT_CONTROL_01_VAL);
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_INIT_CONTROL_02_OFFS,
+               CDSITX_SIDEBAND_INIT_CONTROL_02_VAL);
+
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS, 0x00000001);
+    rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_MASK_00_OFFS);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_MASK_00_OFFS, rdata & 0xFFFFFFFE);
+    rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS);
+
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_INIT_CONTROL_03_OFFS,
+               CDSITX_SIDEBAND_INIT_CONTROL_03_VAL);
+
+    /* Wait D-PHY line initialization */
+    while ((rdata &
+            CDSI0_CDSITX_INTERRUPT_STATUS_00_INT_DPHY_LINEINITDONE_MASK) ==
+           0x0) {
+        rdata = cdsi_read(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS);
+    }
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS, 0x00000001);
+    cdsi_write(dev, CDSI0_AL_RX_BRG_MODE_OFFS, 0x00000003);
+
+    /* Clear all interrupt statuses */
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_00_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_01_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_02_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_03_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_04_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_05_OFFS, 0xFFFFFFFF);
+    cdsi_write(dev, CDSI0_CDSITX_INTERRUPT_STATUS_06_OFFS, 0xFFFFFFFF);
+
+    /* Reset deassertion for LINK */
+    cdsi_write(dev, CDSI0_CDSITX_LINK_RESET_OFFS, CDSITX_LINK_RESET_VAL);
+    /* Reset deassertion for APF */
+    cdsi_write(dev, CDSI0_CDSITX_APF_RESET_OFFS, CDSITX_APF_RESET_VAL);
+
+    /* APF start */
+    cdsi_write(dev, CDSI0_CDSITX_SIDEBAND_INIT_CONTROL_04_OFFS,
+               CDSITX_SIDEBAND_INIT_CONTROL_04_VAL);
+
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_SET_OFFS, 0X0000000B);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_SYN_SET_OFFS, 0X00000001);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_VPARAM_UPDATE_OFFS,
+               CDSI0_AL_TX_BRG_VPARAM_UPDATE_VAL);
+    cdsi_write(dev, CDSI0_AL_TX_BRG_PIC_COM_START_OFFS,
+               CDSI0_AL_TX_BRG_PIC_COM_START_VAL);
+
+    cdsi_write(dev, CDSI0_AL_RX_BRG_CSI_INFO_OFFS,
+               CDSI0_AL_RX_BRG_CSI_INFO_VAL);
+    cdsi_write(dev, CDSI0_AL_RX_BRG_CSI_DT0_OFFS, CDSI0_AL_RX_BRG_CSI_DT0_VAL);
+}
+
+struct camera_sensor ov5645_sensor = {
+    .cdsi_sensor_init = ov5645_csi_init,
+};
+
+/**
+ * @brief thread routine of camera initialization function
+ * @param p_data pointer of data that pass to thread routine
+ */
+static void camera_fn(void *p_data)
+{
+    csi_initialize(&ov5645_sensor, TSB_CDSI1, TSB_CDSI_TX);
+}
+
+/**
+ * @brief camera initialization function
+ * @return zero for success or non-zero on any faillure
+ */
+int camera_init(void)
+{
+    int taskid;
+
+    taskid = task_create("csi_tx_worker", CSI_TX_PRIORITY, CSI_TX_STACK_SIZE,
+                         (main_t)camera_fn, NULL);
+    if (taskid == ERROR) {
+        return ERROR;
+    }
+
+    return 0;
+}
+
+

@@ -170,12 +170,9 @@ int bridge_main(int argc, char *argv[])
         printf("Can not init usb: error %d\n", ret);
     }
 
-#ifdef CONFIG_ARA_BRIDGE_HAVE_CAMERA
-    ret = csi_tx_init();
-    if (ret) {
-        printf("Can not init csi tx: error %d\n", ret);
-    }
-#endif
+    // alexlo
+    //printf("csi_tx_init() start here \n");
+    //ret = csi_tx_init();
 
 #ifdef CONFIG_EXAMPLES_NSH
     printf("Calling NSH\n");
