@@ -1135,8 +1135,6 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
     int ret = 0;
     uint32_t rdata1 = 0;
 
-    printf("[%s]+\n", __func__);
-
     if (!cdsidev) {
         printf("[%s]ERROR! cdsidev is invaild.\n", __func__);
         return -EINVAL;
@@ -1237,8 +1235,6 @@ static int set_mode(struct cdsi_dev *cdsidev, struct reg_val_tbl *vals,
 
     cdsi_write(cdsidev, CDSI0_CDSIRX_ADDRESS_CONFIG_OFFS,
                CDSI0_CDSIRX_ADDRESS_CONFIG_VAL);
-
-    printf("[%s]-\n", __func__);
 
     return ret;
 }
@@ -1665,8 +1661,8 @@ static int ov5645_dev_open(struct device *dev)
     info->cdsidev->v_channel = mipi_csi2_get_virtual_channel(info->cdsidev);
 
     /* set data and clk lane */
-    info->cdsidev->lanes = CDSIRX_LANE_ENABLE_VAL;
-    mipi_csi2_set_lane(info->cdsidev);
+    //info->cdsidev->lanes = CDSIRX_LANE_ENABLE_VAL;
+    //mipi_csi2_set_lane(info->cdsidev);
 
     /* get data and clk lane */
     info->cdsidev->lanes = mipi_csi2_get_lane(info->cdsidev);
@@ -1751,8 +1747,6 @@ static void ov5645_dev_close(struct device *dev)
 {
     struct sensor_info *info = NULL;
 
-    printf("[%s]+\n", __func__);
-
     if (!dev || !device_get_private(dev)) {
         return;
     }
@@ -1761,6 +1755,9 @@ static void ov5645_dev_close(struct device *dev)
 
     /* Stop stream */
     data_write(info->cam_i2c, REG_STREAM_ONOFF, stream_off);
+
+    op_power_down(dev);
+      
     usleep(DELAY_10);
 
     mipi_csi2_stop(info->cdsidev);
@@ -1772,12 +1769,11 @@ static void ov5645_dev_close(struct device *dev)
     free(info->mdata_info);
     free(info->cdsidev);
     up_i2cuninitialize(info->cam_i2c);
-    op_power_down(dev);
     free(info->str_cfg_sup);
 
     info->state = OV5645_STATE_CLOSED;
 
-    printf("[%s]-\n", __func__);
+    printf("[%s] exit camera device driver! \n", __func__);
 }
 
 /**

@@ -45,38 +45,32 @@ struct cdsi_dev *init_csi_rx(int cdsi, int tx)
 {
     struct cdsi_dev *cdsidev;
 
-    printf("[%s]+\n",__func__);
-
     cdsidev = cdsi_initialize(cdsi, tx);
     if (!cdsidev) {
         printf("[%s]csdi_init fails. cdsidev: 0x%x\n",__func__, cdsidev);
         return NULL;
     }
 
-#if 1 //For debugging
+#if 0 //For debugging
     printf("[%s]cdsidev: 0x%x\n",__func__, cdsidev);
     printf("[%s]cdsidev->base: 0x%x\n",__func__, cdsidev->base);
     printf("[%s]tx: %d\n",__func__, tx);
     printf("[%s]cdsi: 0x%x\n",__func__, cdsi);
 #endif
 
-    printf("[%s]-\n",__func__);
-
     return cdsidev;
 }
 
 void deinit_csi_rx(struct cdsi_dev *dev)
 {
-    printf("[%s]+\n",__func__);
 
-#if 1 //For debugging
+#if 0 //For debugging
     printf("[%s]cdsidev: 0x%x\n",__func__, dev);
     printf("[%s]cdsidev->base: 0x%x\n",__func__, dev->base);
     printf("[%s]tx: %d\n",__func__, dev->tx);
 #endif
 
     cdsi_uninitialize(dev);
-    printf("[%s]-\n",__func__);
 
 }
 
@@ -192,25 +186,27 @@ int mipi_csi2_start(struct cdsi_dev *cdsidev)
 int mipi_csi2_stop(struct cdsi_dev *cdsidev)
 {
     uint32_t rdata3;
-    uint32_t lane_status_hs, lane_status_lp, internal_stat;
+    uint32_t lane_status_hs, lane_status_lp, internal_stat;  
 
-    printf("[%s]+++ \n", __func__);
-
-#if 0
+#if 1
     /* Check Lane status - HS */
     lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
     printf("[%s] lane_status_hs = 0x%08x \n", __func__, lane_status_hs);
     while (lane_status_hs != HS_LANE_STATUS) {
         lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
-    }
+    }    
+#endif
 
+#if 0
     /* Check Lane status - LP */
     lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     printf("[%s] lane_status_lp = 0x%08x \n", __func__, lane_status_lp);
     while (lane_status_lp != LP_LANE_STATUS) {
         lane_status_lp = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_LP_OFFS);
     }
+#endif
 
+#if 0
     /* Check CDSIRX Internal state. */
     internal_stat = cdsi_read(cdsidev, CDSI0_CDSIRX_INTERNAL_STAT_OFFS);
     printf("[%s] internal_stat = 0x%08x \n", __func__, internal_stat);
@@ -242,8 +238,6 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
         rdata3 = cdsi_read(cdsidev, CDSI0_AL_RX_BRG_MODE_OFFS) & 0x4;
     }
 #endif
-
-    printf("[%s]--- \n", __func__);
 
     return 0;
 }
@@ -284,7 +278,12 @@ int mipi_csi2_set_virtual_channel(struct cdsi_dev *cdsidev, uint8_t VC_enable )
 int mipi_csi2_set_lane(struct cdsi_dev *cdsidev)
 {
     /*
-     *
+     * 
+     * BIT4: Clock Lane
+     * 0: Lane operation disabled 
+     * 1: Lane operation enabled
+     * 
+     * BIT0-BIT2: Data Lane
      * In order to receive data, at least Data Lane 0 shall be enabled.
      * 000: All data lane is disabled.
      * 001: Data Lane 0 is enabled.
@@ -294,7 +293,6 @@ int mipi_csi2_set_lane(struct cdsi_dev *cdsidev)
      *
      */
     cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, cdsidev->lanes);
-    cdsi_write(cdsidev, CDSI0_CDSIRX_LANE_ENABLE_OFFS, 0x00000012);
 
     return 0;
 }

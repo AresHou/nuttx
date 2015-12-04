@@ -31,6 +31,8 @@
 #ifndef __OV_CSI_H__
 #define __OV_CSI_H__
 
+int camera_init(void);
+
 /**
  * CSI control for camera stream start
  */
