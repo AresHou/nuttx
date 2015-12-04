@@ -188,7 +188,7 @@ int mipi_csi2_stop(struct cdsi_dev *cdsidev)
     uint32_t rdata3;
     uint32_t lane_status_hs, lane_status_lp, internal_stat;  
 
-#if 1
+#if 0
     /* Check Lane status - HS */
     lane_status_hs = cdsi_read(cdsidev, CDSI0_CDSIRX_LANE_STATUS_HS_OFFS);
     printf("[%s] lane_status_hs = 0x%08x \n", __func__, lane_status_hs);
