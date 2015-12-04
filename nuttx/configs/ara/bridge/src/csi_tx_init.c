@@ -590,6 +590,8 @@ int csi_tx_init(void)
 {
     int ret;
 
+    lldbg("CSI-2 Tx initialization \n");
+
     info = zalloc(sizeof(*info));
     if (info == NULL) {
         return -ENOMEM;
