@@ -301,7 +301,11 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     {0x4001, 0x02}, /* BLC start line */
     {0x4004, 0x02}, /* B0xline, 0xnu,mber */
     {0x4005, 0x18}, /* BLC update by gain change */
+#if 1
     {0x4300, 0x30}, /* YUV 422, YUYV */
+#else
+    {0x4300, 0x40}, /* YUV 420, YUYV */
+#endif
     {0x4514, 0x00},
     {0x4520, 0xb0},
     {0x460b, 0x37},
@@ -1759,7 +1763,7 @@ static void ov5645_dev_close(struct device *dev)
     data_write(info->cam_i2c, REG_STREAM_ONOFF, stream_off);
 
     op_power_down(dev);
-      
+
     usleep(DELAY_10);
 
     mipi_csi2_stop(info->cdsidev);
