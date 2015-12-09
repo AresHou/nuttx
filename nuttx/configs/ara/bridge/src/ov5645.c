@@ -206,7 +206,11 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     {0x3017, 0x40}, /* Frex, CSK input, Vsync output */
     {0x3018, 0x00}, /* GPIO input */
     {0x302e, 0x0b},
+#if 0    
     {0x3037, 0x13}, /* PLL */
+#else
+    {0x3037, 0x16}, /* PLL - for MMS dbg */    
+#endif    
     {0x3108, 0x01}, /* PLL */
     {0x3611, 0x06},
     {0x3612, 0xab},
@@ -258,10 +262,25 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     {0x3805, 0x3f}, /* HW */
     {0x3806, 0x07}, /* VH = 1949 */
     {0x3807, 0x9d}, /* VH */
+#if 1  
+    /*Hight*/
     {0x3808, 0x05}, /* DVPHO = 1280 */
     {0x3809, 0x00}, /* DVPHO */
+    
+    /*Low*/
     {0x380a, 0x03}, /* DVPVO = 960 */
     {0x380b, 0xc0}, /* DVPVO */
+#else
+/* For MMS dbg + */
+    /*Hight*/
+    {0x3808, 0x00}, /* DVPHO = 128 - for MMS dbg */
+    {0x3809, 0x80}, /* DVPHO */
+    
+    /*Low*/    
+    {0x380a, 0x00}, /* DVPVO = 96 - for MMS dbg */
+    {0x380b, 0x60}, /* DVPVO */
+/* For MMS dbg - */
+#endif    
     {0x380c, 0x07}, /* HTS = 1896 */
     {0x380d, 0x68}, /* HTS */
     {0x380e, 0x03}, /* VTS = 984 */
@@ -304,7 +323,7 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
 #if 1
     {0x4300, 0x30}, /* YUV 422, YUYV */
 #else
-    {0x4300, 0x40}, /* YUV 420, YUYV */
+    {0x4300, 0x40}, /* YUV 420, YUYV - for MMS dbg */
 #endif
     {0x4514, 0x00},
     {0x4520, 0xb0},
@@ -321,7 +340,12 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     {0x5001, 0x83}, /* SDE on, scale off, UV adjust off, color matrix/AWB on */
     {0x501d, 0x00},
     {0x501f, 0x00}, /* select ISP YUV 422 */
-    {0x503d, 0x00},
+#if 0
+    //{0x503d, 0x00}, /* Color bar disable */
+    {0x503d, 0x83}, /* Color bar disable - for MMS dbg */
+#else
+    {0x503d, 0x80}, /* Color bar enable - for MMS dbg */
+#endif
     {0x505c, 0x30},
     /* AWB control */
     {0x5181, 0x59},
@@ -508,6 +532,7 @@ struct reg_val_tbl ov5645_setting_30fps_VGA_640_480[] = {
     {0x370c, 0xc3},
     {0x3814, 0x31},
     {0x3815, 0x31},
+#if 1
     {0x3800, 0x00},
     {0x3801, 0x00},
     {0x3802, 0x00},
@@ -515,7 +540,7 @@ struct reg_val_tbl ov5645_setting_30fps_VGA_640_480[] = {
     {0x3804, 0x0a},
     {0x3805, 0x3f},
     {0x3806, 0x07},
-    {0x3807, 0x9b},
+    {0x3807, 0x9b},   
     {0x3808, 0x02},
     {0x3809, 0x80},
     {0x380a, 0x01},
@@ -528,6 +553,34 @@ struct reg_val_tbl ov5645_setting_30fps_VGA_640_480[] = {
     {0x3811, 0x10},
     {0x3812, 0x00},
     {0x3813, 0x06},
+#else
+/* For MMS dbg + */
+    {0x3800, 0x00},
+    {0x3801, 0x00},
+    {0x3802, 0x00},
+    {0x3803, 0x04},
+
+    {0x3804, 0x0a},
+    {0x3805, 0x3f},
+    {0x3806, 0x07},
+    {0x3807, 0x9b}, 
+  
+    {0x3808, 0x02},
+    {0x3809, 0x80},
+    {0x380a, 0x01},
+    {0x380b, 0xe0},
+
+    {0x380c, 0x07},
+    {0x380d, 0x68},
+    {0x380e, 0x04},
+    {0x380f, 0x38},
+
+    {0x3810, 0x00},
+    {0x3811, 0x10},
+    {0x3812, 0x00},
+    {0x3813, 0x06},
+/* For MMS dbg - */
+#endif
     {0x3820, 0x41},
     {0x3821, 0x07},
     {0x3a02, 0x03},
@@ -1384,7 +1437,7 @@ static int get_support_mode(struct cdsi_dev *cdsidev,
     uint8_t i;
 
     /* get supported modes */
-    for(i = 1; i < (N_WIN_SIZES-1); i++)
+    for(i = 1; i < (N_WIN_SIZES); i++)
     {
         sup_modes[i].width = (uint16_t)ov5645_mode_settings[i].width;
         sup_modes[i].height = (uint16_t)ov5645_mode_settings[i].height;
@@ -1420,7 +1473,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
     }
 
     /* Filter out the data from host request */
-    for(i=1; i < (N_WIN_SIZES-1); i++) {
+    for(i=1; i < (N_WIN_SIZES); i++) {
         if(((config->width) == (info->str_cfg_sup[i].width)) &&
             ((config->height) == (info->str_cfg_sup[i].height)) &&
             ((config->format) == (info->str_cfg_sup[i].format))) {
