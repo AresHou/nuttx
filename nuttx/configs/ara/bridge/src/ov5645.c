@@ -1380,7 +1380,7 @@ static int get_support_mode(struct cdsi_dev *cdsidev,
     uint8_t i;
 
     /* get supported modes */
-    for(i = 1; i < (N_WIN_SIZES-1); i++)
+    for(i = 1; i < (N_WIN_SIZES); i++)
     {
         sup_modes[i].width = (uint16_t)ov5645_mode_settings[i].width;
         sup_modes[i].height = (uint16_t)ov5645_mode_settings[i].height;
@@ -1416,7 +1416,7 @@ static int op_set_streams_cfg(struct device *dev, uint16_t *num_streams,
     }
 
     /* Filter out the data from host request */
-    for(i=1; i < (N_WIN_SIZES-1); i++) {
+    for(i=1; i < (N_WIN_SIZES); i++) {
         if(((config->width) == (info->str_cfg_sup[i].width)) &&
             ((config->height) == (info->str_cfg_sup[i].height)) &&
             ((config->format) == (info->str_cfg_sup[i].format))) {

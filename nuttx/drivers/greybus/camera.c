@@ -190,14 +190,14 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
         if (!cfg_request) {
             return GB_OP_NO_MEMORY;
         }
-        
+
         lldbg("num_streams = %d \n", num_streams);
-        
+
         /* todo: check is there performance issue on below conversion*/
         /* convert data for driver */
         for (i = 0; i < num_streams; i++) {
             lldbg("\n");
-            
+
             cfg_request[i].width = le16_to_cpu(cfg_set_req[i].width);
             cfg_request[i].height = le16_to_cpu(cfg_set_req[i].height);
             cfg_request[i].format = le16_to_cpu(cfg_set_req[i].format);
@@ -263,7 +263,7 @@ static uint8_t gb_camera_configure_streams(struct gb_operation *operation)
             lldbg("    virtual_channel = %d \n", cfg_answer[i].virtual_channel);
             lldbg("    data_type = %d \n", cfg_answer[i].data_type);
             lldbg("    max_size = %d \n", cfg_answer[i].max_size);
-            
+
             cfg_ans_resp[i].width = cpu_to_le16(cfg_answer[i].width);
             cfg_ans_resp[i].height = cpu_to_le16(cfg_answer[i].height);
             cfg_ans_resp[i].format = cpu_to_le16(cfg_answer[i].format);
@@ -394,7 +394,7 @@ static uint8_t gb_camera_flush(struct gb_operation *operation)
 
     response->request_id = cpu_to_le32(request_id);
     lldbg("    request_id = %d + \n", request_id);
-    
+
     lldbg("gb_camera_flush() + \n");
 
     return GB_OP_SUCCESS;
@@ -458,7 +458,7 @@ static int gb_camera_init(unsigned int cport)
     int ret;
 
     lldbg("gb_camera_init + \n");
-    
+
     info = zalloc(sizeof(*info));
     if (info == NULL) {
         return -ENOMEM;
@@ -474,10 +474,10 @@ static int gb_camera_init(unsigned int cport)
         goto err_free_info;
     }
 
-    info->state = STATE_CONNECTED; /* STATE_UNCONFIGURED ? */
+    info->state = STATE_UNCONFIGURED;
 
     lldbg("gb_camera_init - \n");
-    
+
     return 0;
 
 err_free_info:
