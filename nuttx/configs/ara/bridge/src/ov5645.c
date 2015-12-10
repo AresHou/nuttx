@@ -206,7 +206,7 @@ struct reg_val_tbl ov5645_init_setting_SXGA_1280_960[] = {
     {0x3017, 0x40}, /* Frex, CSK input, Vsync output */
     {0x3018, 0x00}, /* GPIO input */
     {0x302e, 0x0b},
-#if 0    
+#if 1    
     {0x3037, 0x13}, /* PLL */
 #else
     {0x3037, 0x16}, /* PLL - for MMS dbg */    
